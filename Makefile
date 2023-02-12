@@ -13,4 +13,4 @@ RoundSending:
 	mpic++ RoundSending.c -o RoundSending
 
 clear:
-	rm HelloWorld Sum
+	rm HelloWorld Sum RoundSending

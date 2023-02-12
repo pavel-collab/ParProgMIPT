@@ -10,7 +10,11 @@ int main(int argc, char* argv[]) {
     int size = 0;
 
     // Initilize parallel part of program
-    MPI_Init(&argc, &argv);
+    int rc = MPI_Init(&argc, &argv);
+    if (rc != MPI_SUCCESS) {
+        perror("[-] Error starting MPI program. Programm was terminated.\n");
+        MPI_Abort(MPI_COMM_WORLD, rc);
+    }
 
     // Get the total number of pocess (save in variable size)
     MPI_Comm_size(MPI_COMM_WORLD, &size);
