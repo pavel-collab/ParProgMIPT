@@ -2,18 +2,10 @@
 #include <math.h>
 #include "mpi.h"
 
-// double Sum(int start, int end) {
-//     double res = 0;
-//     for (double i = start; i <= end; ++i) {
-//         res += 1/i;
-//     }
-//     return res;
-// }
-
-int Sum(int start, int end) {
-    int res = 0;
-    for (int i = start; i <= end; ++i) {
-        res += i;
+double Sum(int start, int end) {
+    double res = 0;
+    for (double i = start; i <= end; ++i) {
+        res += 1/i;
     }
     return res;
 }
@@ -52,7 +44,7 @@ int main(int argc, char* argv[]) {
     n_range = N / size;
     mod_size = N % size;
 
-    int rank_res = 0;
+    double rank_res = 0;
 
     int rank_start, rank_end = 0;
 
@@ -68,14 +60,14 @@ int main(int argc, char* argv[]) {
     rank_res = Sum(rank_start, rank_end);
 
     if (rank != 0) {
-        printf("Process %d, size %d, rank sum %d\n", rank, size, rank_res);
+        printf("Process %d, size %d, rank sum %lf\n", rank, size, rank_res);
         MPI_Send(&rank_res, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
     else {
-        printf("Process %d, size %d, rank sum %d\n", rank, size, rank_res);
+        printf("Process %d, size %d, rank sum %lf\n", rank, size, rank_res);
         res += rank_res;
 
-        int tmp_res = 0;
+        double tmp_res = 0;
         for (unsigned proc_rank = 1; proc_rank < size; proc_rank++) {
             MPI_Recv(&tmp_res, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             res += tmp_res;
