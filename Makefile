@@ -15,5 +15,8 @@ RoundSending:
 Exponent:
 	mpic++ Exponent.c -o Exponent
 
+BlockingSendResearch:
+	mpic++ BlockingSendResearch.c -o BlockingSendResearch
+
 clear:
 	rm HelloWorld Sum RoundSending exponent
