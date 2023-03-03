@@ -11,8 +11,11 @@ int main(int argc, char* argv[]) {
     int size = 0;
     int rank = 0;
 
+    const char* send_file_name = "send.txt";
+    const char* resv_file_name = "resv.txt";
+
     if (argc != 3) {
-        fprintf(stderr, "[-] Usage %s N mode\nFor mode you can use: -, b, s, r\n", argv[0]);
+        fprintf(stderr, "[-] Usage %s N mode\nFor mode you can use:\n\tstandart\n\tbuf\n\tsynch\n\tready\n", argv[0]);
         return 1;
     }
     int N = atoi(argv[1]);
@@ -43,20 +46,27 @@ int main(int argc, char* argv[]) {
         MPI_Send(&N, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
 
         double start = MPI_Wtime();
-        if (!strcmp(mode, "-"))
+        if (!strcmp(mode, "standart"))
             MPI_Send(data_for_send, N, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        else if (!strcmp(mode, "b"))
+        else if (!strcmp(mode, "buf"))
             MPI_Bsend(data_for_send, N, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        else if (!strcmp(mode, "s"))
+        else if (!strcmp(mode, "synch"))
             MPI_Ssend(data_for_send, N, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        else if (!strcmp(mode, "r"))
+        else if (!strcmp(mode, "ready"))
             MPI_Rsend(data_for_send, N, MPI_INT, 0, 0, MPI_COMM_WORLD);
         else {
             perror("[-] There is not such mode\n");
             MPI_Abort(MPI_COMM_WORLD, rc);
         }
         double end = MPI_Wtime();
+        FILE* fd = fopen(send_file_name, "a");
+        if (fd) {
+            fprintf(fd, "%lf\n", end-start);
+            fclose(fd);
+        }
+        #ifdef DEBUG
         printf("proc [%d] size %d total send time is %f\n", rank, size, end-start);
+        #endif // DEBUG
         free(data_for_send);
     }
 
@@ -71,15 +81,14 @@ int main(int argc, char* argv[]) {
         double start = MPI_Wtime();
         MPI_Recv(data_for_resv, len, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         double end = MPI_Wtime();
-        printf("proc [%d] size %d total resv time is %f\n", rank, size, end-start);
-
-        #ifdef DEBUG
-        printf("proc [%d] size %d resv result is\n", rank, size);
-        for (int i = 0; i < len; ++i) {
-            printf("data_for_resv[%d] = %d\n", i, data_for_resv[i]);
+        FILE* fd = fopen(resv_file_name, "a");
+        if (fd) {
+            fprintf(fd, "%lf\n", end-start);
+            fclose(fd);
         }
-        #endif //DEBUG
-
+        #ifdef DEBUG
+        printf("proc [%d] size %d total resv time is %f\n", rank, size, end-start);
+        #endif // DEBUG
         free(data_for_resv);
     }
 
