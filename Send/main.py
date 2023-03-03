@@ -31,7 +31,7 @@ def Test(mode: str):
     CleanFile("resv.txt")
 
     for i in array_len:
-        subprocess.run(["mpiexec", "-n", "2", "./BlockingSendResearch", str(i), str(mode)])
+        subprocess.run(["mpiexec", "-n", "2", "./send", str(i), str(mode)])
 
     send_time = ImportDataFileContent("send.txt")
     resv_time = ImportDataFileContent("resv.txt")
