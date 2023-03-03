@@ -11,6 +11,9 @@ int main(int argc, char* argv[]) {
     int size = 0;
     int rank = 0;
 
+    int new_size = 0;
+    int new_rank = 0;
+
     MPI_Status status;
 
     int rc = MPI_Init(&argc, &argv);
@@ -22,7 +25,20 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    /*code here*/
+    MPI_Comm new_comm;
+    // группа в отличие от коммуникатора не может обеспечивать пересылки
+    MPI_Group base_group;
+    MPI_Group new_group;
+
+    MPI_Comm_group(MPI_COMM_WORLD, &base_group);
+    int exclude_rank = size-1;
+    MPI_Group_excl(base_group, 1, &exclude_rank, &new_group);
+    MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+
+    MPI_Comm_size(new_comm, &new_size);
+    MPI_Comm_rank(new_comm, &new_rank);
+
+    printf("proc [%d] size %d\n", new_rank, new_size);
 
     MPI_Finalize();
 
