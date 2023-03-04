@@ -60,6 +60,10 @@ int main(int argc, char* argv[]) {
         rank_res += cur_item;
     }
 
+    #ifdef DEBUG
+    printf("proc [%d] size %d -- in range [%d, %d] rank res is %lf\n", rank, size, rank_start, rank_end, rank_res);
+    #endif //DEBUG
+
     double factor = 0;
     if (rank != 0) {
         for (int proc = 0; proc < rank; ++proc) {
