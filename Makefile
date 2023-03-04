@@ -12,8 +12,8 @@ Sum:
 RoundSending:
 	mpic++ RoundSending.c -o RoundSending
 
-exponent:
-	mpic++ exponent.c -o exponent
+Exponent:
+	mpic++ Exponent.c -o Exponent
 
 clear:
 	rm HelloWorld Sum RoundSending exponent
