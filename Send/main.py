@@ -4,7 +4,7 @@ import subprocess
 from datetime import datetime
 
 # array_len = np.arange(16, 4096+1, 80)
-array_len = np.arange(16, 1000+1, 24)
+array_len = np.arange(16, 500+1, 44)
 
 def CleanFile(file_name: str):
     fd = open(file_name, "w")
@@ -58,10 +58,10 @@ def Test(mode: str):
 def main():
     # Test("standart")
     # Test("ready")
-    # Test("synch")
+    Test("synch")
     # We have the limit on the buffer size. 
     # So, if we have the message that longer then the buf size, it will be an error
-    Test("buf")
+    # Test("buf")
 
 if __name__ == '__main__':
     main()
