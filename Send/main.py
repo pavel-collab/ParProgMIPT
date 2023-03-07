@@ -3,9 +3,7 @@ import matplotlib.pyplot as plt
 import subprocess
 from datetime import datetime
 
-array_len = [
-        32, 64, 128, 256, 512, 1024, 2048, 4096
-    ]
+array_len = np.arange(1, 4096+1)
 
 def CleanFile(file_name: str):
     fd = open(file_name, "w")
