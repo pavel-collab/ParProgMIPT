@@ -98,7 +98,7 @@ MPI_Ssend не только показывает, что сообщение ус
 но также показывает, что получатель начал принимать это сообщение из промежуточного буффера.
 
 <p align="center">
-    <img src="" alt="caption" width="300"/>
+    <img src="https://github.com/pavel-collab/ParProgMIPT/blob/main/Send/images/Standart_Synch_Compare.jpg" alt="caption" width="300"/>
 </p>
 
 Поскольку между отправкой и приемом сообщения организована искусственная задержка в 2 секунды, на 
