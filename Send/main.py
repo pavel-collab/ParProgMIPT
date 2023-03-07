@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import subprocess
 from datetime import datetime
 
-array_len = np.arange(1, 4096+1)
+array_len = np.arange(16, 4096+1, 80)
 
 def CleanFile(file_name: str):
     fd = open(file_name, "w")
@@ -28,32 +28,38 @@ def Test(mode: str):
     CleanFile("send.txt")
     CleanFile("resv.txt")
 
-    for i in array_len:
-        subprocess.run(["mpiexec", "-n", "2", "./send", str(i), str(mode)])
+    try:
+        
+        for i in array_len:
+            subprocess.run(["mpiexec", "-n", "2", "./send", str(i), str(mode)])
 
-    send_time = ImportDataFileContent("send.txt")
-    resv_time = ImportDataFileContent("resv.txt")
+        send_time = ImportDataFileContent("send.txt")
+        resv_time = ImportDataFileContent("resv.txt")
 
-    fig1 = plt.figure()
-    plt.title("Send time")
-    plt.xlabel("Длина целочисленного массива")
-    plt.ylabel("Время")
-    plt.plot(np.array(array_len), np.array(send_time))
-    plt.scatter(np.array(array_len), np.array(send_time))
-    fig1.savefig(send_plot_file)
+        fig1 = plt.figure()
+        plt.title("Send time")
+        plt.xlabel("Длина целочисленного массива")
+        plt.ylabel("Время")
+        plt.plot(np.array(array_len), np.array(send_time))
+        plt.scatter(np.array(array_len), np.array(send_time))
+        fig1.savefig(send_plot_file)
 
-    fig2 = plt.figure()
-    plt.title("Resv time")
-    plt.xlabel("Длина целочисленного массива")
-    plt.ylabel("Время")
-    plt.plot(np.array(array_len), np.array(resv_time))
-    plt.scatter(np.array(array_len), np.array(resv_time))
-    fig2.savefig(resv_plot_file)
+        fig2 = plt.figure()
+        plt.title("Resv time")
+        plt.xlabel("Длина целочисленного массива")
+        plt.ylabel("Время")
+        plt.plot(np.array(array_len), np.array(resv_time))
+        plt.scatter(np.array(array_len), np.array(resv_time))
+        fig2.savefig(resv_plot_file)
+    except KeyboardInterrupt:
+        print("The programm was terminated by the Keyboard")
 
 def main():
     Test("standart")
     Test("ready")
     Test("synch")
+    # We have the limit on the buffer size. 
+    # So, if we have the message that longer then the buf size, it will be an error
     # Test("buf")
 
 if __name__ == '__main__':
