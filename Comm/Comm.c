@@ -33,12 +33,32 @@ int main(int argc, char* argv[]) {
     MPI_Comm_group(MPI_COMM_WORLD, &base_group);
     int exclude_rank = size-1;
     MPI_Group_excl(base_group, 1, &exclude_rank, &new_group);
-    MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+    if (MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm) != MPI_SUCCESS) {
+        perror("[-] Error comm creating. Programm was terminated.\n");
+        MPI_Abort(MPI_COMM_WORLD, rc);
+    }
 
-    MPI_Comm_size(new_comm, &new_size);
-    MPI_Comm_rank(new_comm, &new_rank);
+    int compare_res;
 
-    printf("proc [%d] size %d\n", new_rank, new_size);
+    if (new_comm != MPI_COMM_NULL) {
+        MPI_Comm_compare(MPI_COMM_WORLD, new_comm, &compare_res);
+        if (compare_res == MPI_UNEQUAL) {
+            printf("unequal\n");
+        }
+        else if (compare_res == MPI_IDENT) {
+            printf("indent\n");
+        }
+
+        MPI_Comm_size(new_comm, &new_size);
+        MPI_Comm_rank(new_comm, &new_rank);
+
+        printf("proc [%d] size %d\n", new_rank, new_size);
+
+        MPI_Comm_free(&new_comm);
+    }
+    else {
+        printf("this rank out of new_comm\n");
+    }
 
     MPI_Finalize();
 
