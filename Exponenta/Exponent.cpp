@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <math.h>
+#include <iostream>
+#include <cmath>
 #include "mpi.h"
 
 #define DEBUG
