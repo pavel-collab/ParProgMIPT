@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def ImportDataFileContent(file_name: str) -> list:
     res = []
@@ -18,11 +19,16 @@ def ImportDataFileContent(file_name: str) -> list:
 t = np.linspace(0, 1, 100)
 x = np.linspace(0, 1, 100)
 
-u = np.full((100, 100), 0.0)
+x_grid, t_grid = np.meshgrid(x, t)
+
 data = np.array(ImportDataFileContent("data.txt"))
 
-plt.plot(x[:-1], data[0][:-1])
-plt.plot(x, data[1])
-plt.plot(x, data[2])
-plt.plot(x, data[3])
+fig = plt.figure()
+ax_3d = fig.add_subplot(projection="3d")
+# ax_3d.plot_surface(x_grid, t_grid, data)
+ax_3d.plot_wireframe(x_grid, t_grid, data)
+ax_3d.set_xlabel("x")
+ax_3d.set_ylabel("t")
+ax_3d.set_zlabel("u")
 plt.show()
+# fig.savefig("./test.jpg")

@@ -8,3 +8,5 @@ comm
 *.txt
 sandbox.*
 a.out
+tmp.*
+rma
