@@ -9,6 +9,8 @@ int main(int argc, char* argv[]) {
     char port_name[MPI_MAX_PORT_NAME];
     MPI_Lookup_name("server_name", MPI_INFO_NULL, port_name);
 
+    printf("[CLIENT] The port name is %s\n", port_name);
+
     // Connect to server
     MPI_Comm server;
     MPI_Comm_connect(port_name, MPI_INFO_NULL, 0, MPI_COMM_SELF, &server);

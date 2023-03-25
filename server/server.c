@@ -8,8 +8,10 @@ int main(int argc, char* argv[]) {
     // Open port
     char port_name[MPI_MAX_PORT_NAME];
     MPI_Open_port(MPI_INFO_NULL, port_name);
+    
+    printf("[SERVER] The port name is %s\n", port_name);
 
-    // Publish portname and accept client
+    // Publish name and accept client
     MPI_Comm client;
     MPI_Publish_name("server_name", MPI_INFO_NULL, port_name);
     MPI_Comm_accept(port_name, MPI_INFO_NULL, 0, MPI_COMM_WORLD, &client);
