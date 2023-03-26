@@ -2,13 +2,30 @@
 #include <cmath>
 #include "mpi.h"
 
-#define DEBUG
+// #define DEBUG
+
+long long Newtons_M(unsigned long K, double init_x) {
+    unsigned steps = 0;
+    double accuracy = 1e-6;
+    double x_cur = init_x;
+    double x_prev = 0;
+
+    while(abs(x_cur - x_prev) > accuracy) {
+        x_prev = x_cur;
+        steps+=1;
+        x_cur = x_prev - (x_prev*log(x_prev) - x_prev - K*log(10)) / (log(x_prev));
+    }
+
+    return static_cast<long long>(std::floor(x_cur));
+}
 
 int main(int argc, char* argv[]) {
 
     int size = 0;
     int rank = 0;
-    double res = 0;
+    int res = 0;
+    double total_res = 0.0;
+    int last_factor = 0;
 
     MPI_Status status;
 
@@ -20,8 +37,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     // количество знаков после запятой
-    int K = atoi(argv[1]);
-    int N = 4 + K;
+    unsigned long K = atoi(argv[1]);
+    long long N = Newtons_M(K, 2.0);
+
+    printf("To get %lu accuracy we have to have %lld items\n", K, N);
+
+    // long long N = 11;
 
     int rc = MPI_Init(&argc, &argv);
     if (rc != MPI_SUCCESS) {
@@ -40,9 +61,6 @@ int main(int argc, char* argv[]) {
     n_range = N / size;
     mod_size = N % size;
 
-    double cur_item = 1; // начальный элемент ряда
-    double rank_res = 0; // частичная сумма каждого поцесса
-
     int rank_start, rank_end = 0;
 
     // Задаем, с какого по какой элемент ряда суммирует процесс
@@ -55,48 +73,62 @@ int main(int argc, char* argv[]) {
         rank_end = rank_start + n_range - 1;
     }
 
-    for (int i = rank_start; i <= rank_end; ++i) {
-        cur_item = cur_item / i;
+    int cur_item = N - rank_start + 1; // начальный элемент ряда
+    int cur_num = N - rank_start + 1;
+    int rank_res = N - rank_start + 1; // частичная сумма каждого поцесса
+
+    for (int i = rank_start; i <= rank_end-1; ++i) {
+        #ifdef DEBUG
+        printf("proc [%d] size %d -- cur item is %d\n", rank, size, cur_item);
+        #endif //DEBUG
+        cur_num = cur_num - 1;
+        cur_item = cur_item * cur_num;
+        #ifdef DEBUG
+        printf("proc [%d] size %d -- cur item is %d\n", rank, size, cur_item);
+        #endif //DEBUG
         rank_res += cur_item;
+        #ifdef DEBUG
+        printf("proc [%d] size %d -- cur rank res is %d\n", rank, size, rank_res);
+        #endif //DEBUG
     }
 
-    #ifdef DEBUG
-    printf("proc [%d] size %d -- in range [%d, %d] rank res is %lf\n", rank, size, rank_start, rank_end, rank_res);
-    #endif //DEBUG
-
-    double factor = 0;
+    int factor = 0;
     if (rank != 0) {
-        for (int proc = 0; proc < rank; ++proc) {
-            MPI_Recv(&factor, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            rank_res *= factor;
-            cur_item *= factor;
+        MPI_Recv(&factor, 1, MPI_INT, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        rank_res *= factor;
+        cur_item *= factor;
+        MPI_Send(&rank_res, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+
+        if (rank == size-1) {
+            MPI_Send(&cur_item, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
         }
-        MPI_Send(&rank_res, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
 
     #ifdef DEBUG
-    printf("proc [%d] size %d -- in range [%d, %d] rank res is %lf\n", rank, size, rank_start, rank_end, rank_res);
+    printf("proc [%d] size %d -- in range [%d, %d] rank res is %d\n", rank, size, rank_start, rank_end, rank_res);
     #endif //DEBUG
 
-    if (rank != size) {
-        for (int proc = rank+1; proc < size; ++proc) {
-            MPI_Send(&cur_item, 1, MPI_DOUBLE, proc, 0, MPI_COMM_WORLD);
-        }
+    if (rank != size-1) {
+        MPI_Send(&cur_item, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
     }
 
     if (rank == 0) {
-        double tmp_res;
-        // need to explain, why +1
-        res = rank_res + 1;
+        int tmp_res;
+        res = rank_res;
         for (int proc = 1; proc < size; ++proc) {
-            MPI_Recv(&tmp_res, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            MPI_Recv(&tmp_res, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             res += tmp_res;
         }
+
+        MPI_Recv(&last_factor, 1, MPI_INT, size-1, 1, MPI_COMM_WORLD, &status);
+        total_res = static_cast<double>(res) / static_cast<double>(last_factor);
     }
 
     MPI_Finalize();
 
-    printf("result is %lf\n", res);
+    printf("last factor is %d\n", last_factor);
+    printf("result is %d\n", res);
+    printf("result is %f\n", total_res);
 
     return 0;
 }
