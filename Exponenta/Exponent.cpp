@@ -19,6 +19,21 @@ long long Newtons_M(unsigned long K, double init_x) {
     return static_cast<long long>(std::floor(x_cur));
 }
 
+void ItemDestribution(int rank, int size, long long N, int* rank_start, int* rank_end) {
+    int64_t n_range = N / size;
+    uint64_t mod_size = N % size;
+
+    // Задаем, с какого по какой элемент ряда суммирует процесс
+    if (rank < mod_size) {
+        *rank_start = rank*(n_range + 1) + 1;
+        *rank_end = *rank_start + n_range;
+    }
+    else {
+        *rank_start = rank*n_range + 1 + mod_size;
+        *rank_end = *rank_start + n_range - 1;
+    }    
+}
+
 int main(int argc, char* argv[]) {
 
     int size = 0;
@@ -29,9 +44,6 @@ int main(int argc, char* argv[]) {
 
     MPI_Status status;
 
-    uint64_t n_range = 0;
-    uint64_t mod_size = 0;
-
     if (argc != 2) {
         fprintf(stderr, "[-] Usage %s K\n", argv[0]);
         return 1;
@@ -41,8 +53,6 @@ int main(int argc, char* argv[]) {
     long long N = Newtons_M(K, 2.0);
 
     printf("To get %lu accuracy we have to have %lld items\n", K, N);
-
-    // long long N = 11;
 
     int rc = MPI_Init(&argc, &argv);
     if (rc != MPI_SUCCESS) {
@@ -58,38 +68,18 @@ int main(int argc, char* argv[]) {
         MPI_Abort(MPI_COMM_WORLD, rc);
     }
 
-    n_range = N / size;
-    mod_size = N % size;
-
     int rank_start, rank_end = 0;
 
-    // Задаем, с какого по какой элемент ряда суммирует процесс
-    if (rank < mod_size) {
-        rank_start = rank*(n_range + 1) + 1;
-        rank_end = rank_start + n_range;
-    }
-    else {
-        rank_start = rank*n_range + 1 + mod_size;
-        rank_end = rank_start + n_range - 1;
-    }
+    ItemDestribution(rank, size, N, &rank_start, &rank_end);
 
     int cur_item = N - rank_start + 1; // начальный элемент ряда
     int cur_num = N - rank_start + 1;
     int rank_res = N - rank_start + 1; // частичная сумма каждого поцесса
 
     for (int i = rank_start; i <= rank_end-1; ++i) {
-        #ifdef DEBUG
-        printf("proc [%d] size %d -- cur item is %d\n", rank, size, cur_item);
-        #endif //DEBUG
         cur_num = cur_num - 1;
         cur_item = cur_item * cur_num;
-        #ifdef DEBUG
-        printf("proc [%d] size %d -- cur item is %d\n", rank, size, cur_item);
-        #endif //DEBUG
         rank_res += cur_item;
-        #ifdef DEBUG
-        printf("proc [%d] size %d -- cur rank res is %d\n", rank, size, rank_res);
-        #endif //DEBUG
     }
 
     int factor = 0;
