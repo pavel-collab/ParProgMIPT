@@ -4,6 +4,9 @@
 
 // #define DEBUG
 
+// Релизация численного решения нелинейного уравнения N*ln(N) - N - K*ln(10) = 0
+// методом Ньютона для определения количества слагаемых N в ряде 
+// для достижения заданной точности K (количество знаков после десятичной точки)
 long long Newtons_M(unsigned long K, double init_x) {
     unsigned steps = 0;
     double accuracy = 1e-6;
@@ -19,6 +22,9 @@ long long Newtons_M(unsigned long K, double init_x) {
     return static_cast<long long>(std::floor(x_cur));
 }
 
+// Функция сопостовляем величине rank процесса количество слагаемых ряда, которое процесс
+// должен обработать. Слагаемые нумеруются, начиная с 1. Процесс с номером rank
+// обрабатывает слагаемые начиная с rank_start и заканчивая rank_end
 void ItemDestribution(int rank, int size, long long N, int* rank_start, int* rank_end) {
     int64_t n_range = N / size;
     uint64_t mod_size = N % size;
@@ -73,7 +79,7 @@ int main(int argc, char* argv[]) {
     ItemDestribution(rank, size, N, &rank_start, &rank_end);
 
     int cur_item = N - rank_start + 1; // начальный элемент ряда
-    int cur_num = N - rank_start + 1;
+    int cur_num = N - rank_start + 1;  // текущий множитель в ряде
     int rank_res = N - rank_start + 1; // частичная сумма каждого поцесса
 
     for (int i = rank_start; i <= rank_end-1; ++i) {
@@ -90,6 +96,7 @@ int main(int argc, char* argv[]) {
         MPI_Send(&rank_res, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
 
         if (rank == size-1) {
+            // последний процесс посылает нулевому величину N!
             MPI_Send(&cur_item, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
         }
     }
