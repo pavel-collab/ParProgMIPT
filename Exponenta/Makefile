@@ -1,5 +1,5 @@
 all:
-	mpic++ Exponent.cpp -o Exponent
+	mpic++ Exponent.cpp -lgmpxx -lgmp
 
 clear:
 	rm Exponent
