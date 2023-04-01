@@ -17,12 +17,12 @@ def ImportDataFileContent(file_name: str) -> list:
     res = np.array(res_list)
     return res.T
 
-t = np.linspace(0, 1, 100)
-x = np.linspace(0, 1, 100)
+data = ImportDataFileContent("data.txt")
+
+t = np.linspace(0, 1, np.shape(data)[1])
+x = np.linspace(0, 1, np.shape(data)[0])
 
 x_grid, t_grid = np.meshgrid(x, t)
-
-data = np.array(ImportDataFileContent("data.txt"))
 
 fig = plt.figure()
 ax_3d = fig.add_subplot(projection="3d")

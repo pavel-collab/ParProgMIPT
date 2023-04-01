@@ -6,7 +6,4 @@ parallel:
 clear:
 	rm a.out
 	rm main
-	rm data.txt
-	touch data.txt
-	rm data1.txt
-	touch data1.txt
+	rm data*

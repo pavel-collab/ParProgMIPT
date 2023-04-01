@@ -120,8 +120,13 @@ int main() {
     */
     double T = 1;
     double X = 1;
-    int K = 100; // по t
-    int M = 100; // по x
+
+    /*
+    Пока что на 8000*8000 узлах на последовательной программе заметно замедление.
+    Компьютеру прям плохо становится.
+    */
+    int K = 500; // по t
+    int M = 500; // по x
 
     // шаг сетки по времени и по пространству
     double tau = T / K;
@@ -132,14 +137,14 @@ int main() {
     arr[K*M]. В этом случае будет удобнее передавать их в функции по указателям и,
     в случае надобности, выделять динамически.
     */
-    double f_arr[K*M];
-    double u[K*M];
+    double* f_arr = (double*) malloc(K*M*sizeof(double));
+    double* u     = (double*) malloc(K*M*sizeof(double));
     /*Заполнить массив значений функции в узлах сетки*/
     FillFunctionValues(f, f_arr, M, K, tau, h);
 
     // начальные условия задачи индекс соответствующего одномерного массива по индексам двумерного
-    double phi_arr[K];
-    double psi_arr[M];
+    double* phi_arr = (double*) malloc(K*sizeof(double));
+    double* psi_arr = (double*) malloc(M*sizeof(double));
     /*
     Задаем начальные условия
     */
@@ -173,5 +178,13 @@ int main() {
     const char* data_file_name = "data.txt";
     PutData2File(data_file_name, u, M, K);
 
+    free(u);
+    free(psi_arr);
+    free(phi_arr);
+    /*
+    Данный кусок памяти вроде как надо чистить.
+    Но при попытке поистить его, программа выкидывает double free or corruption.
+    */
+    // free(f_arr);
     return 0;
 }

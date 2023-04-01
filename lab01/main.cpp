@@ -1,8 +1,9 @@
 #include <iostream>
 #include <cmath>
+#include <cstring>
 #include "mpi.h"
 
-#define DEBUG
+// #define DEBUG
 #define pi 3.14159265
 
 // Функция, задающая ДУ
@@ -90,7 +91,7 @@ int GetRankEnd(int rank, int size, int N) {
 // u -- указатель на массив значений размером M*K
 // M -- количество столбцов в двумерном массиве
 // K -- количество строк в двумерном массиве
-void PutData2File1(const char* data_file_name, double* u, int M, int K) {
+void PutData2File(const char* data_file_name, double* u, int M, int K) {
     FILE* fd = fopen(data_file_name, "a");
     if (fd) {
         for (int m = 0; m < M; ++m) {
@@ -204,16 +205,16 @@ int main(int argc, char* argv[]) {
     const char* data_file_name4 = "data4.txt";
 
     if (rank == 0) {
-        PutData2File1(data_file_name1, u, rank_M, K);
+        PutData2File(data_file_name1, u, rank_M, K);
     }
     else if (rank == 1) {
-        PutData2File1(data_file_name2, u, rank_M, K);
+        PutData2File(data_file_name2, u, rank_M, K);
     }
     else if (rank == 2) {
-        PutData2File1(data_file_name3, u, rank_M, K);
+        PutData2File(data_file_name3, u, rank_M, K);
     }
     else if (rank == 3) {
-        PutData2File1(data_file_name4, u, rank_M, K);
+        PutData2File(data_file_name4, u, rank_M, K);
     }
 
     MPI_Finalize();
