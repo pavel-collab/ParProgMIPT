@@ -67,6 +67,37 @@ void LeftCorner(double* u, double* f_arr, int M, int K, double tau, double h) {
     }
 }
 
+int GetRankStart(int rank, int size, int N) {
+    int n_range = N / size;
+    int mod_size = N % size;
+
+    int rank_start = 0;
+    if (rank < mod_size) {
+        rank_start = rank*(n_range + 1);
+    } 
+    else {
+        rank_start = rank*n_range + mod_size;
+    }
+
+    return rank_start;
+}
+
+int GetRankEnd(int rank, int size, int N) {
+    int n_range = N / size;
+    int mod_size = N % size;
+
+    int rank_end = 0;
+    int rank_start = GetRankStart(rank, size, N);
+    if (rank < mod_size) {
+        rank_end = rank_start + n_range;
+    } 
+    else {
+        rank_end = rank_start + n_range - 1;
+    }
+
+    return rank_end;
+}
+
 int main(int argc, char* argv[]) {
     /*
     Задаем T, X, K, M
@@ -122,17 +153,9 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    //! Временная заглушка: тестировать будем с использованием 4 процессов
-    if (size != 4) {
-        perror("[-] Expected 4 processes. Programm was terminated.\n");
-        MPI_Abort(MPI_COMM_WORLD, rc);
-    }
-
-    // начало и конец диапазона (пространственного или временного), котрый обрабатывает текущий процесс
-    int rank_M_start = rank*N / 4;
-    int rank_M_end = rank_start + N/4 - 1;
-    int rank_K_start = rank*K / 4;
-    int rank_K_end = rank_start + K/4 - 1;
+    // устанавливаем начало и конец диапазона, который обрабатывает текущий процесс
+    int rank_M_start = GetRankStart(rank, size, M);
+    int rank_M_end = GetRankEnd(rank, size, M);
 
     /*code here*/
 
