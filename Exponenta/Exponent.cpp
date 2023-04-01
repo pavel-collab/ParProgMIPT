@@ -2,9 +2,10 @@
 #include <gmpxx.h>
 #include <cstring>
 #include <cmath>
+// #include <fstream>
 #include "mpi.h"
 
-// #define DEBUG
+#define DEBUG
 #define LEN_TAG 11
 #define MESSAGE_TAG 12
 #define SPECIAL_TAG 1
@@ -83,7 +84,9 @@ int main(int argc, char* argv[]) {
     unsigned long K = atoi(argv[1]);
     long long N = Newtons_M(K, 2.0);
 
+    #ifdef DEBUG
     printf("To get %lu accuracy we have to have %lld items\n", K, N);
+    #endif //DEBUG
 
     int rc = MPI_Init(&argc, &argv);
     if (rc != MPI_SUCCESS) {
@@ -131,64 +134,61 @@ int main(int argc, char* argv[]) {
 
         mpz_mul(rank_res, rank_res, factor);
         mpz_mul(cur_item, cur_item, factor);
-        
-        // char* rank_res_str = mpz_get_str(NULL, 10, rank_res);
-        // int rank_res_len = strlen(rank_res_str);
-        // MPI_Send(&rank_res_len, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        // MPI_Send(&rank_res_str, strlen(rank_res_str), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
 
         MPI_SEND_MPZ(rank_res, 0, MPI_COMM_WORLD);
 
         if (rank == size-1) {
-            // последний процесс посылает нулевому величину N!
-            // char* cur_item_str = mpz_get_str(NULL, 10, cur_item);
-            // int cur_item_len = strlen(cur_item_str);
-            // MPI_Send(&cur_item_len, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
-            // MPI_Send(cur_item_str, strlen(cur_item_str), MPI_CHAR, 0, 1, MPI_COMM_WORLD);
-            MPI_SEND_MPZ(cur_item, 0, MPI_COMM_WORLD);
+            char* cur_item_str = mpz_get_str(NULL, 10, cur_item);
+            int cur_item_str_len = strlen(cur_item_str);
+            MPI_Send(&cur_item_str_len, 1, MPI_INT, 0, SPECIAL_TAG, MPI_COMM_WORLD);
+            MPI_Send(cur_item_str, cur_item_str_len, MPI_CHAR, 0, SPECIAL_TAG, MPI_COMM_WORLD);
         }
     }
 
-    #ifdef DEBUG
-    printf("proc [%d] size %d -- in range [%d, %d] rank res is %d\n", rank, size, rank_start, rank_end, rank_res);
-    #endif //DEBUG
-
     if (rank != size-1) {
-        // char* str_factor_send = mpz_get_str(NULL, 10, cur_item);
-        // int factor_send_len = strlen(str_factor_send);
-        // MPI_Send(&factor_send_len, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
-        // MPI_Send(str_factor_send, strlen(str_factor_send), MPI_CHAR, rank+1, 0, MPI_COMM_WORLD);
         MPI_SEND_MPZ(cur_item, rank+1, MPI_COMM_WORLD);
     }
 
     if (rank == 0) {
         mpz_t tmp_res;
+        
         for (int proc = 1; proc < size; ++proc) {
             char* tmp_res_str = (char*) calloc(10, sizeof(char));
             MPI_RECV_MPZ(tmp_res_str, proc, MPI_COMM_WORLD, &status);
-
             mpz_init_set_str(tmp_res, tmp_res_str, 10);
             free(tmp_res_str);
-
             mpz_add(rank_res, rank_res, tmp_res);
         }
         char* res_str = mpz_get_str(NULL, 10, rank_res);
+        printf("Process [%d], res is %s\n", rank, res_str);
         mpz_init_set_str(res, res_str, 10);
 
-        char* last_factor_str = (char*) calloc(10, sizeof(char));
-        MPI_RECV_MPZ(last_factor_str, size-1, MPI_COMM_WORLD, &status);
+        int last_factor_str_len = 0;
+        MPI_Recv(&last_factor_str_len, 1, MPI_INT, size-1, SPECIAL_TAG, MPI_COMM_WORLD, &status);
+        char* last_factor_str = (char*) calloc(last_factor_str_len, sizeof(char));
+        MPI_Recv(last_factor_str, last_factor_str_len, MPI_CHAR, size-1, SPECIAL_TAG, MPI_COMM_WORLD, &status);
         mpf_init_set_str(last_factor, last_factor_str, 10);
+        printf("Process [%d], last factor is %s\n", rank, last_factor_str);
         free(last_factor_str);
 
         mpf_init_set_str(total_res, res_str, 10);
         mpf_div(total_res, total_res, last_factor);
+
+        FILE* out;
+        const char* file_name = "result.txt";
+        if ((out = fopen(file_name, "w")) == NULL) {
+            perror("[-] File open error.");
+            return 1;
+        
+        }
+        mpf_out_str(out, 10, 0, total_res);
+
+        fclose(out);
+
+        // mpf_out_str(stdout, 10, 0, total_res);
     }
 
     MPI_Finalize();
 
-    std::cout << "last factor is " << last_factor << std::endl;
-    std::cout << "result is " << res << std::endl;
-    std::cout << "total result is " << total_res << std::endl;
-    
     return 0;
 }
