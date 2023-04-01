@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
 
     double u[K*rank_M];
     // u(0, x) = phi(x)
-    for (int i = rank_M_start; i < rank_M_end; ++i) {
+    for (int i = rank_M_start; i <= rank_M_end; ++i) {
         u[GetIdx(0, i-rank_M*rank, rank_M)] = phi_arr[i];
     }
     if (rank == 0) {
@@ -200,12 +200,20 @@ int main(int argc, char* argv[]) {
 
     const char* data_file_name1 = "data1.txt";
     const char* data_file_name2 = "data2.txt";
+    const char* data_file_name3 = "data3.txt";
+    const char* data_file_name4 = "data4.txt";
 
     if (rank == 0) {
         PutData2File1(data_file_name1, u, rank_M, K);
     }
     else if (rank == 1) {
         PutData2File1(data_file_name2, u, rank_M, K);
+    }
+    else if (rank == 2) {
+        PutData2File1(data_file_name3, u, rank_M, K);
+    }
+    else if (rank == 3) {
+        PutData2File1(data_file_name4, u, rank_M, K);
     }
 
     MPI_Finalize();
