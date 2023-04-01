@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 def ImportDataFileContent(file_name: str) -> list:
-    res = []
+    res_list = []
     fd = open(file_name, "r")
     content = fd.read()
     # the last symbol is \n
@@ -12,9 +12,10 @@ def ImportDataFileContent(file_name: str) -> list:
         sub_res = []
         for s2 in s1.split(" ")[:-1]:
             sub_res.append(float(s2))
-        res.append(sub_res)
-    fd.close()    
-    return res
+        res_list.append(sub_res)
+    fd.close()  
+    res = np.array(res_list)
+    return res.T
 
 t = np.linspace(0, 1, 100)
 x = np.linspace(0, 1, 100)

@@ -60,8 +60,8 @@ void FillInitialValues(double(*f)(double), double* arr, int N, double h) {
 void PutData2File(const char* data_file_name, double* u, int M, int K) {
     FILE* fd = fopen(data_file_name, "a");
     if (fd) {
-        for (int k = 0; k < K; ++k) {
-            for (int m = 0; m < M; ++m) {
+        for (int m = 0; m < M; ++m) {
+            for (int k = 0; k < K; ++k) {
                 int idx = GetIdx(k, m, M);
                 fprintf(fd, "%lf ", u[idx]);
             }
