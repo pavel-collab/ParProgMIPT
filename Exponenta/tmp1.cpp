@@ -6,6 +6,29 @@ This is an example of using gmp library
 #include <cstring>
 #include "mpi.h"
 
+#define LEN_TAG 11
+#define MESSAGE_TAG 12
+#define SPECIAL_TAG 1
+
+void MPI_SEND_MPZ(mpz_srcptr numb, int dest, MPI_Comm comm) {
+    // полуаем строку из длинной арифметики
+    char* str_numb = mpz_get_str(NULL, 10, numb);
+    // вычисляем ее длинну
+    int str_len = strlen(str_numb);
+    // отправляем длинну строки
+    MPI_Send(&str_len, 1, MPI_INT, dest, LEN_TAG, comm);
+    // отправляем сообщение
+    MPI_Send(str_numb, str_len, MPI_CHAR, dest, MESSAGE_TAG, comm);
+}
+
+void MPI_RCV_MPZ(char* buf, int source, MPI_Comm comm, MPI_Status* status) {
+    // принимаем длинну сообщения
+    int str_len = 0;
+    MPI_Recv(&str_len, 1, MPI_INT, source, LEN_TAG, MPI_COMM_WORLD, status);
+    buf = (char*) realloc(buf, str_len);
+    // принимаем строку
+    MPI_Recv(buf, str_len, MPI_CHAR, source, MESSAGE_TAG, MPI_COMM_WORLD, status);
+}
 
 int main(int argc, char* argv[]) {
     /*
@@ -33,19 +56,12 @@ int main(int argc, char* argv[]) {
         mpz_init_set_ui(var, 124097102); // инициализируем эту переменную
         // mpz_init_set_str(var, "124097102");
         std::cout << var << std::endl;
-        char* str_var = mpz_get_str(NULL, 10, var); // конвертируем переменную длинной арифметики в строку
-        std::cout << str_var << std::endl;
-        int str_len = strlen(str_var); // длина строки
-        MPI_Send(&str_len, 1, MPI_INT, 1, 0, MPI_COMM_WORLD); // сначала отсылаем длину строки
-        MPI_Send(str_var, str_len, MPI_CHAR, 1, 0, MPI_COMM_WORLD); // отсылаем строку
+        MPI_SEND_MPZ(var, 1, MPI_COMM_WORLD);
         mpz_clear(var);
     }
     else if (rank == 1) {
-        int str_len = 0;
-        MPI_Recv(&str_len, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // принимаем длину строки
-        std::cout << str_len << std::endl;
-        char* str_var = (char*) calloc(str_len, sizeof(char)); // выделяем буффер, чтобы принять строку
-        MPI_Recv(str_var, str_len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);  //прнимаем строку
+        char* str_var = (char*) calloc(10, sizeof(char));
+        MPI_RCV_MPZ(str_var, 0, MPI_COMM_WORLD, &status);
         std::cout << str_var << std::endl;
         
         mpz_t var; // заводим новую переменную длинной арифметики
