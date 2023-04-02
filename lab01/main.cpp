@@ -199,22 +199,16 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    const char* data_file_name1 = "data1.txt";
-    const char* data_file_name2 = "data2.txt";
-    const char* data_file_name3 = "data3.txt";
-    const char* data_file_name4 = "data4.txt";
+    const char* data_file_name1 = "data.txt";
 
-    if (rank == 0) {
-        PutData2File(data_file_name1, u, rank_M, K);
+    if (rank != 0) {
+        int special_signal = 0;
+        MPI_Recv(&special_signal, 1, MPI_INT, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     }
-    else if (rank == 1) {
-        PutData2File(data_file_name2, u, rank_M, K);
-    }
-    else if (rank == 2) {
-        PutData2File(data_file_name3, u, rank_M, K);
-    }
-    else if (rank == 3) {
-        PutData2File(data_file_name4, u, rank_M, K);
+    PutData2File(data_file_name1, u, rank_M, K);
+    if (rank != size-1) {
+        int special_signal = 69;
+        MPI_Send(&special_signal, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
     }
 
     MPI_Finalize();
