@@ -2,7 +2,7 @@
 #include <gmpxx.h>
 #include <cstring>
 #include <cmath>
-// #include <fstream>
+#include <fstream>
 #include "mpi.h"
 
 #define DEBUG
@@ -70,9 +70,9 @@ int main(int argc, char* argv[]) {
 
     int size = 0;
     int rank = 0;
-    mpf_t total_res; // результат работы программы -- число e с заданной точностью (получаем делением res на last_fector)
+    mpf_t total_res;   // результат работы программы -- число e с заданной точностью (получаем делением res на last_fector)
     mpf_t last_factor; // n! который последний процесс отправляет первому для деления
-    mpz_t res; // результат сложения ВСЕХ слагаемых, но целочисленный (без деления на n!)
+    mpz_t res;         // результат сложения ВСЕХ слагаемых, но целочисленный (без деления на n!)
 
     MPI_Status status;
 
@@ -130,23 +130,19 @@ int main(int argc, char* argv[]) {
 
         mpz_t factor;
         mpz_init_set_str(factor, str_factor, 10);
-        free(str_factor);
+        // free(str_factor);
 
         mpz_mul(rank_res, rank_res, factor);
         mpz_mul(cur_item, cur_item, factor);
 
         MPI_SEND_MPZ(rank_res, 0, MPI_COMM_WORLD);
-
-        if (rank == size-1) {
-            char* cur_item_str = mpz_get_str(NULL, 10, cur_item);
-            int cur_item_str_len = strlen(cur_item_str);
-            MPI_Send(&cur_item_str_len, 1, MPI_INT, 0, SPECIAL_TAG, MPI_COMM_WORLD);
-            MPI_Send(cur_item_str, cur_item_str_len, MPI_CHAR, 0, SPECIAL_TAG, MPI_COMM_WORLD);
-        }
     }
 
     if (rank != size-1) {
         MPI_SEND_MPZ(cur_item, rank+1, MPI_COMM_WORLD);
+    }
+    else if (rank == size-1) {
+        MPI_SEND_MPZ(cur_item, 0, MPI_COMM_WORLD);
     }
 
     if (rank == 0) {
@@ -156,21 +152,20 @@ int main(int argc, char* argv[]) {
             char* tmp_res_str = (char*) calloc(10, sizeof(char));
             MPI_RECV_MPZ(tmp_res_str, proc, MPI_COMM_WORLD, &status);
             mpz_init_set_str(tmp_res, tmp_res_str, 10);
-            free(tmp_res_str);
+            // free(tmp_res_str);
             mpz_add(rank_res, rank_res, tmp_res);
         }
         char* res_str = mpz_get_str(NULL, 10, rank_res);
         printf("Process [%d], res is %s\n", rank, res_str);
         mpz_init_set_str(res, res_str, 10);
 
-        int last_factor_str_len = 0;
-        MPI_Recv(&last_factor_str_len, 1, MPI_INT, size-1, SPECIAL_TAG, MPI_COMM_WORLD, &status);
-        char* last_factor_str = (char*) calloc(last_factor_str_len, sizeof(char));
-        MPI_Recv(last_factor_str, last_factor_str_len, MPI_CHAR, size-1, SPECIAL_TAG, MPI_COMM_WORLD, &status);
+        char* last_factor_str = (char*) calloc(10, sizeof(char));
+        MPI_RECV_MPZ(last_factor_str, size-1, MPI_COMM_WORLD, &status);
         mpf_init_set_str(last_factor, last_factor_str, 10);
         printf("Process [%d], last factor is %s\n", rank, last_factor_str);
-        free(last_factor_str);
+        // free(last_factor_str);
 
+        //! есть вероятность, что я плохо инициализирую число с плавающей точкой чере строку
         mpf_init_set_str(total_res, res_str, 10);
         mpf_div(total_res, total_res, last_factor);
 
@@ -192,3 +187,11 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+// std::ofstream out;          // поток для записи
+// out.open("result.txt");      // открываем файл для записи
+// if (out.is_open())
+// {
+//     out << total_res << std::endl;
+// }
+// out.close(); 
