@@ -6,4 +6,4 @@ parallel:
 clear:
 	rm a.out
 	rm main
-	rm data*
+	rm data.txt

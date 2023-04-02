@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <chrono>
 
 #define pi 3.14159265
 
@@ -160,6 +161,7 @@ int main() {
         u[GetIdx(i, 0, M)] = psi_arr[i];
     }
 
+    auto t_start = std::chrono::high_resolution_clock::now();
     //---------------------------------------Расчетная схема №1---------------------------------------
     //---------------------------------------Явный левый уголок---------------------------------------
     // LeftCorner(u, f_arr, M, K, tau, h);
@@ -174,9 +176,12 @@ int main() {
     //---------------------------------------------Крест----------------------------------------------
     CrossScheme(u, f_arr, M, K, tau, h);
     //------------------------------------------------------------------------------------------------
+    auto t_end = std::chrono::high_resolution_clock::now();
 
     const char* data_file_name = "data.txt";
     PutData2File(data_file_name, u, M, K);
+
+    std::cout << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
 
     free(u);
     free(psi_arr);

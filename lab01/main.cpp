@@ -105,14 +105,26 @@ void PutData2File(const char* data_file_name, double* u, int M, int K) {
     }
 }
 
+void PutData2FileParallel(int rank, int size, const char* data_file_name, double* u, int M, int K) {
+    if (rank != 0) {
+        int special_signal = 0;
+        MPI_Recv(&special_signal, 1, MPI_INT, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    PutData2File(data_file_name, u, M, K);
+    if (rank != size-1) {
+        int special_signal = 69;
+        MPI_Send(&special_signal, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
+    }
+}
+
 int main(int argc, char* argv[]) {
     /*
     Задаем T, X, K, M
     */
     double T = 1;
     double X = 1;
-    int K = 100; // по t
-    int M = 100; // по x
+    int K = 1000; // по t
+    int M = 1000; // по x
 
     // шаг сетки по времени и по пространству
     double tau = T / K;
@@ -171,6 +183,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    double start = MPI_Wtime();
+
     for (int k = 0; k < K; ++k) {
         if (rank == 0) {
             for (int m = 1; m < rank_M; ++m) {
@@ -199,17 +213,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    const char* data_file_name1 = "data.txt";
+    double end = MPI_Wtime();
 
-    if (rank != 0) {
-        int special_signal = 0;
-        MPI_Recv(&special_signal, 1, MPI_INT, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-    }
-    PutData2File(data_file_name1, u, rank_M, K);
-    if (rank != size-1) {
-        int special_signal = 69;
-        MPI_Send(&special_signal, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
-    }
+    const char* data_file_name1 = "data.txt";
+    PutData2FileParallel(rank, size, data_file_name1, u, rank_M, K);
+
+    std::cout << (end - start)*1000 << " ms \n";
 
     MPI_Finalize();
 
