@@ -135,13 +135,16 @@ int main(int argc, char* argv[]) {
     arr[K*M]. В этом случае будет удобнее передавать их в функции по указателям и,
     в случае надобности, выделять динамически.
     */
-    double f_arr[K*M];
+    // double f_arr[K*M];
+    double* f_arr = (double*) malloc(K*M*sizeof(double));
     /*Заполнить массив значений функции в узлах сетки*/
     FillFunctionValues(f, f_arr, M, K, tau, h);
 
     // начальные условия задачи индекс соответствующего одномерного массива по индексам двумерного
-    double phi_arr[K];
-    double psi_arr[M];
+    // double phi_arr[K];
+    // double psi_arr[M];
+    double* phi_arr = (double*) malloc(K*sizeof(double));
+    double* psi_arr = (double*) malloc(M*sizeof(double));
     /*
     Задаем начальные условия
     */
@@ -171,7 +174,8 @@ int main(int argc, char* argv[]) {
     printf("proc [%d] work on space [%d, %d] with %d cells\n", rank, rank_M_start, rank_M_end, rank_M);
     #endif //DEBUG
 
-    double u[K*rank_M];
+    // double u[K*rank_M];
+    double* u     = (double*) malloc(K*rank_M*sizeof(double));
     // u(0, x) = phi(x)
     for (int i = rank_M_start; i <= rank_M_end; ++i) {
         u[GetIdx(0, i-rank_M*rank, rank_M)] = phi_arr[i];
@@ -217,10 +221,14 @@ int main(int argc, char* argv[]) {
 
     const char* data_file_name1 = "data.txt";
     PutData2FileParallel(rank, size, data_file_name1, u, rank_M, K);
+    free(u);
 
     std::cout << (end - start)*1000 << " ms \n";
 
     MPI_Finalize();
 
+    free(psi_arr);
+    free(phi_arr);
+    free(f_arr);
     return 0;
 }
