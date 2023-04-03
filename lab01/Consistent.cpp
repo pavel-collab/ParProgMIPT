@@ -115,7 +115,7 @@ void CrossScheme(double* u, double* f_arr, int M, int K, double tau, double h) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     /*
     Задаем T, X, K, M
     */
@@ -126,8 +126,16 @@ int main() {
     Пока что на 8000*8000 узлах на последовательной программе заметно замедление.
     Компьютеру прям плохо становится.
     */
-    int K = 1000; // по t
-    int M = 1000; // по x
+    // int K = 1000; // по t
+    // int M = 1000; // по x
+
+    /*Ввод количества точек на расчетной сетке через параметры командной строки*/
+    if (argc != 3) {
+        fprintf(stderr, "[-] Usage %s K N\n", argv[0]);
+        return -1;
+    }
+    int K = atoi(argv[1]);
+    int M = atoi(argv[2]);
 
     // шаг сетки по времени и по пространству
     double tau = T / K;
@@ -179,17 +187,21 @@ int main() {
     auto t_end = std::chrono::high_resolution_clock::now();
 
     const char* data_file_name = "data.txt";
+    const char* file_name = "time.txt";
     PutData2File(data_file_name, u, M, K);
 
     std::cout << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
+    FILE* fd = fopen(file_name, "a");
+    fprintf(fd, "%lf ", std::chrono::duration<double, std::milli>(t_end-t_start).count());
+    fclose(fd);
 
-    free(u);
-    free(psi_arr);
-    free(phi_arr);
     /*
     Данный кусок памяти вроде как надо чистить.
     Но при попытке поистить его, программа выкидывает double free or corruption.
     */
+    // free(u);
+    // free(psi_arr);
+    // free(phi_arr);
     // free(f_arr);
     return 0;
 }
