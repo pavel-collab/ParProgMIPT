@@ -141,6 +141,9 @@ int main(int argc, char* argv[]) {
     double tau = T / K;
     double h = X / M;
 
+    //! замеры времени можно ставить в разных местах
+    auto t_start = std::chrono::high_resolution_clock::now();
+
     /*
     Двумерные массивы arr[K][M] будем хранить в виде одномерных массивов
     arr[K*M]. В этом случае будет удобнее передавать их в функции по указателям и,
@@ -169,7 +172,9 @@ int main(int argc, char* argv[]) {
         u[GetIdx(i, 0, M)] = psi_arr[i];
     }
 
-    auto t_start = std::chrono::high_resolution_clock::now();
+    //! замеры времени можно ставить в разных местах
+    // auto t_start = std::chrono::high_resolution_clock::now();
+
     //---------------------------------------Расчетная схема №1---------------------------------------
     //---------------------------------------Явный левый уголок---------------------------------------
     // LeftCorner(u, f_arr, M, K, tau, h);
@@ -184,13 +189,18 @@ int main(int argc, char* argv[]) {
     //---------------------------------------------Крест----------------------------------------------
     CrossScheme(u, f_arr, M, K, tau, h);
     //------------------------------------------------------------------------------------------------
-    auto t_end = std::chrono::high_resolution_clock::now();
+    
+    //! замеры времени можно ставить в разных местах
+    // auto t_end = std::chrono::high_resolution_clock::now();
 
     const char* data_file_name = "data.txt";
     const char* file_name = "time.txt";
     PutData2File(data_file_name, u, M, K);
 
-    std::cout << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
+    //! замеры времени можно ставить в разных местах
+    auto t_end = std::chrono::high_resolution_clock::now();
+    
+    std::cout << "consistent " << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
     FILE* fd = fopen(file_name, "a");
     fprintf(fd, "%lf ", std::chrono::duration<double, std::milli>(t_end-t_start).count());
     fclose(fd);

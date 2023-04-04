@@ -184,6 +184,9 @@ int main(int argc, char* argv[]) {
         MPI_Abort(MPI_COMM_WORLD, rc);
     }
 
+    // ! замеры времени можно ставить в разных местах
+    double start = MPI_Wtime();
+
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
@@ -209,7 +212,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    double start = MPI_Wtime();
+    // ! замеры времени можно ставить в разных местах
+    // double start = MPI_Wtime();
 
     for (int k = 0; k < K; ++k) {
         if (rank == 0) {
@@ -239,16 +243,20 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    double end = MPI_Wtime();
+    //! замеры времени можно ставить в разных местах
+    // double end = MPI_Wtime();
 
     const char* data_file_name = "data.txt";
     const char* time_file_name = "time.txt";
     PutData2FileParallel(rank, size, data_file_name, u, rank_M, K);
-    // free(u);
+    
+    // ! замеры времени можно ставить в разных местах
+    double end = MPI_Wtime();
 
-    // std::cout << (end - start)*1000 << " ms \n";
+    std::cout << "Parallel (" << K << ") " << (end - start)*1000 << " ms \n";
     PutTime2FileParallel(rank, size, time_file_name, (end - start)*1000);
 
+    // free(u);
     MPI_Finalize();
 
     // free(psi_arr);
@@ -256,3 +264,7 @@ int main(int argc, char* argv[]) {
     // free(f_arr);
     return 0;
 }
+
+/*
+MPI_Count <- сколько элементов принимает в строку
+*/
