@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
     int size = 0;
     int rank = 0;
     mpf_t total_res;   // результат работы программы -- число e с заданной точностью (получаем делением res на last_fector)
-    mpf_t last_factor; // n! который последний процесс отправляет первому для деления
+    // mpf_t last_factor; // n! который последний процесс отправляет первому для деления
     mpz_t res;         // результат сложения ВСЕХ слагаемых, но целочисленный (без деления на n!)
 
     MPI_Status status;
@@ -147,40 +147,53 @@ int main(int argc, char* argv[]) {
 
     if (rank == 0) {
         mpz_t tmp_res;
+        mpz_init(tmp_res);
         
         for (int proc = 1; proc < size; ++proc) {
             char* tmp_res_str = (char*) calloc(10, sizeof(char));
             MPI_RECV_MPZ(tmp_res_str, proc, MPI_COMM_WORLD, &status);
-            mpz_init_set_str(tmp_res, tmp_res_str, 10);
+            // mpz_init_set_str(tmp_res, tmp_res_str, 10);
             // free(tmp_res_str);
+            gmp_sscanf(tmp_res_str, "%Zd", tmp_res);
+            gmp_printf("tmp res %Zd\n", tmp_res);
             mpz_add(rank_res, rank_res, tmp_res);
         }
         char* res_str = mpz_get_str(NULL, 10, rank_res);
         printf("Process [%d], res is %s\n", rank, res_str);
-        mpz_init_set_str(res, res_str, 10);
+        // mpz_init_set_str(res, res_str, 10);
 
         char* last_factor_str = (char*) calloc(10, sizeof(char));
         MPI_RECV_MPZ(last_factor_str, size-1, MPI_COMM_WORLD, &status);
-        mpf_init_set_str(last_factor, last_factor_str, 10);
+        // mpf_init_set_str(last_factor, last_factor_str, 10);
+        mpz_t mpz_tmp_last_factor;
+        mpz_init_set_str(mpz_tmp_last_factor, last_factor_str, 10);
+
+        mpf_t last_factor;
+        mpf_init2(last_factor, 1000);
+        mpf_set_z(last_factor, mpz_tmp_last_factor);
+
         printf("Process [%d], last factor is %s\n", rank, last_factor_str);
         // free(last_factor_str);
 
         //! есть вероятность, что я плохо инициализирую число с плавающей точкой чере строку
-        mpf_init_set_str(total_res, res_str, 10);
+        // mpf_init_set_str(total_res, res_str, 10);
+        // mpf_div(total_res, total_res, last_factor);
+        mpf_init2(total_res, 1000);
+        mpf_set_z(total_res, rank_res);
         mpf_div(total_res, total_res, last_factor);
 
-        FILE* out;
-        const char* file_name = "result.txt";
-        if ((out = fopen(file_name, "w")) == NULL) {
-            perror("[-] File open error.");
-            return 1;
+        // FILE* out;
+        // const char* file_name = "result.txt";
+        // if ((out = fopen(file_name, "w")) == NULL) {
+        //     perror("[-] File open error.");
+        //     return 1;
         
-        }
-        mpf_out_str(out, 10, 0, total_res);
+        // }
+        // mpf_out_str(out, 10, 0, total_res);
 
-        fclose(out);
+        // fclose(out);
 
-        // mpf_out_str(stdout, 10, 0, total_res);
+        mpf_out_str(stdout, 10, 0, total_res);
     }
 
     MPI_Finalize();
