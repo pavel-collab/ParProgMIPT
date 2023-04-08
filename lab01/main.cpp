@@ -196,28 +196,26 @@ int main(int argc, char* argv[]) {
 
     double* u     = (double*) malloc(K*rank_M*sizeof(double));
     // u(0, x) = phi(x)
-    for (int i = rank_M_start; i <= rank_M_end; ++i) {
+    for (int i = rank_M_start; i <= rank_M_end; ++i)
         u[GetIdx(0, i-rank_M*rank, rank_M)] = phi_arr[i];
-    }
     if (rank == 0) {
         // u(t, 0) = psi(t)
-        for (int i = 0; i < K; ++i) {
+        for (int i = 0; i < K; ++i)
             u[GetIdx(i, 0, rank_M)] = psi_arr[i];
-        }
     }
 
     // ! замеры времени можно ставить в разных местах
     // double start = MPI_Wtime();
 
-    for (int k = 0; k < K; ++k) {
+    for (int k = 0; k < K-1; ++k) {
         if (rank != 0) {
             double u_prev = 0.0;
             MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
         }
 
-        for (int m = 1; m < rank_M; ++m) 
-            u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];    
+        for (int m = 1; m < rank_M; ++m)
+            u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];  
 
         if (rank != size-1)
             MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
@@ -244,7 +242,3 @@ int main(int argc, char* argv[]) {
     // free(f_arr);
     return 0;
 }
-
-/*
-MPI_Count <- сколько элементов принимает в строку
-*/
