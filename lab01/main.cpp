@@ -3,7 +3,7 @@
 #include <cstring>
 #include "mpi.h"
 
-// #define DEBUG
+#define DEBUG
 #define pi 3.14159265
 
 // Функция, задающая ДУ
@@ -137,8 +137,6 @@ int main(int argc, char* argv[]) {
     */
     double T = 1;
     double X = 1;
-    // int K = 100; // по t
-    // int M = 100; // по x
 
     /*Ввод количества точек на расчетной сетке через параметры командной строки*/
     if (argc != 3) {
@@ -157,14 +155,11 @@ int main(int argc, char* argv[]) {
     arr[K*M]. В этом случае будет удобнее передавать их в функции по указателям и,
     в случае надобности, выделять динамически.
     */
-    // double f_arr[K*M];
     double* f_arr = (double*) malloc(K*M*sizeof(double));
     /*Заполнить массив значений функции в узлах сетки*/
     FillFunctionValues(f, f_arr, M, K, tau, h);
 
     // начальные условия задачи индекс соответствующего одномерного массива по индексам двумерного
-    // double phi_arr[K];
-    // double psi_arr[M];
     double* phi_arr = (double*) malloc(K*sizeof(double));
     double* psi_arr = (double*) malloc(M*sizeof(double));
     /*
@@ -199,7 +194,6 @@ int main(int argc, char* argv[]) {
     printf("proc [%d] work on space [%d, %d] with %d cells\n", rank, rank_M_start, rank_M_end, rank_M);
     #endif //DEBUG
 
-    // double u[K*rank_M];
     double* u     = (double*) malloc(K*rank_M*sizeof(double));
     // u(0, x) = phi(x)
     for (int i = rank_M_start; i <= rank_M_end; ++i) {
@@ -216,31 +210,17 @@ int main(int argc, char* argv[]) {
     // double start = MPI_Wtime();
 
     for (int k = 0; k < K; ++k) {
-        if (rank == 0) {
-            for (int m = 1; m < rank_M; ++m) {
-                u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];
-
-                if (m == rank_M-1) {
-                    MPI_Send(&u[GetIdx(k, m, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
-                }
-            }    
+        if (rank != 0) {
+            double u_prev = 0.0;
+            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
         }
-        else {
-            for (int m = 0; m < rank_M; ++m) {
-                if (m == 0) {
-                    double u_prev = 0.0;
-                    MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-                    u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u_prev;
-                }
-                else {
-                    u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];
-                }
 
-                if ((m == rank_M-1) && (rank != size-1)) {
-                    MPI_Send(&u[GetIdx(k, m, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
-                }
-            }
-        }
+        for (int m = 1; m < rank_M; ++m) 
+            u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];    
+
+        if (rank != size-1)
+            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
     }
 
     //! замеры времени можно ставить в разных местах

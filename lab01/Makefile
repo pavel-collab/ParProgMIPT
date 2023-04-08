@@ -7,3 +7,4 @@ clear:
 	rm a.out
 	rm main
 	rm data.txt
+	rm time.txt
