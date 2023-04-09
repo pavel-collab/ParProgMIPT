@@ -56,7 +56,7 @@ def main():
         fd.close()
 
     date = datetime.strftime(datetime.now(), "%d.%m.%Y-%H.%M.%S")
-    save_file_name = r"../images/acceleration/_" + date + r".jpg"
+    save_file_name = r"../images/acceleration/" + f'{n_proces}_proc_' + date + r".jpg"
 
     fig = plt.figure()
     plt.scatter(np.array(points_list), np.array(consistent_prog_time))
