@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import subprocess
 from datetime import datetime
+import argparse
 
 def ImportDataTimeFileContent(file_name: str) -> list:
     res_list = []
@@ -16,8 +17,16 @@ def ImportDataTimeFileContent(file_name: str) -> list:
     return res
 
 def main():
-    n_proces = 4
-    points_list = [100, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--number_of_proc", help="*description*")
+    args = parser.parse_args()
+
+    if args.number_of_proc != None:
+        n_proces = args.number_of_proc
+    else:
+        n_proces = 2
+
+    points_list = [100, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]
 
     consistent_prog_time = []
     parallel_prog_time = []
