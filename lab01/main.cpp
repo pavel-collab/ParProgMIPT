@@ -131,9 +131,40 @@ void PutTime2FileParallel(int rank, int size, const char* file_name, double time
     }
 }
 
+// Функция производит численно решение задачи с применением схемы: явный левый уголок (реализация для параллельной программы)
+// rank -- ранк процесса
+// size -- количество процессов
+// u -- указатель на массив значений размером rank_M*K
+// f_arr -- указатель на массив значений функии в узлах сетки
+// rank_M -- количество точек на пространственном диапазоне (для конкретного процесса)
+// K -- количество точек на временном диапазоне
+// tau -- шаг сетки временного диапазона
+// h -- шаг сетки пространственного диапазона
+void LeftCornerParallel(int rank, int size, double* u, double* f_arr, int rank_M, int K, double tau, double h) {
+    for (int k = 0; k < K-1; ++k) {
+        // Каждый процесс, кроме нулевого должен получить от предыдущего процесса 
+        // крайнюю левую точку для старта расчета своего промежутка
+        if (rank != 0) {
+            double u_prev = 0.0;
+            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
+        }
+
+        for (int m = 1; m < rank_M; ++m)
+            u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];  
+
+        // каждый процесс, кроме последнего отправляет своему соседу крайнюю
+        // правую точку своего промежутка
+        if (rank != size-1)
+            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+    }
+}
+
 int main(int argc, char* argv[]) {
     /*
-    Задаем T, X, K, M
+    Задаем T, X, K, M -- 
+    границы пространственного и временного диапазона 
+    и количество точек на расчетной сетке.
     */
     double T = 1;
     double X = 1;
@@ -159,7 +190,7 @@ int main(int argc, char* argv[]) {
     /*Заполнить массив значений функции в узлах сетки*/
     FillFunctionValues(f, f_arr, M, K, tau, h);
 
-    // начальные условия задачи индекс соответствующего одномерного массива по индексам двумерного
+    // начальные условия задачи
     double* phi_arr = (double*) malloc(K*sizeof(double));
     double* psi_arr = (double*) malloc(M*sizeof(double));
     /*
@@ -207,19 +238,20 @@ int main(int argc, char* argv[]) {
     // ! замеры времени можно ставить в разных местах
     // double start = MPI_Wtime();
 
-    for (int k = 0; k < K-1; ++k) {
-        if (rank != 0) {
-            double u_prev = 0.0;
-            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
-        }
+    LeftCornerParallel(rank, size, u, f_arr, rank_M, K, tau, h);
+    // for (int k = 0; k < K-1; ++k) {
+    //     if (rank != 0) {
+    //         double u_prev = 0.0;
+    //         MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    //         u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
+    //     }
 
-        for (int m = 1; m < rank_M; ++m)
-            u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];  
+    //     for (int m = 1; m < rank_M; ++m)
+    //         u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];  
 
-        if (rank != size-1)
-            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
-    }
+    //     if (rank != size-1)
+    //         MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+    // }
 
     //! замеры времени можно ставить в разных местах
     // double end = MPI_Wtime();

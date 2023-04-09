@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import subprocess
+from datetime import datetime
 
 def ImportDataTimeFileContent(file_name: str) -> list:
     res_list = []
@@ -16,23 +17,22 @@ def ImportDataTimeFileContent(file_name: str) -> list:
 
 def main():
     n_proces = 4
-    # points_list = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]
-    points_list = [1000, 2000]
+    points_list = [100, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]
 
     consistent_prog_time = []
     parallel_prog_time = []
 
-    # for points in points_list:
-    #     for i in range(10):
-    #         subprocess.run(["./a.out", f'{points}', f'{points}'])
-    #         fd = open("data.txt", "w")
-    #         fd.write("")
-    #         fd.close()
-    #     res = ImportDataTimeFileContent("time.txt")
-    #     consistent_prog_time.append(np.mean(res))
-    #     fd = open("time.txt", "w")
-    #     fd.write("")
-    #     fd.close()
+    for points in points_list:
+        for i in range(10):
+            subprocess.run(["./a.out", f'{points}', f'{points}'])
+            fd = open("data.txt", "w")
+            fd.write("")
+            fd.close()
+        res = ImportDataTimeFileContent("time.txt")
+        consistent_prog_time.append(np.mean(res))
+        fd = open("time.txt", "w")
+        fd.write("")
+        fd.close()
 
     for points in points_list:
         for i in range(10):
@@ -46,15 +46,20 @@ def main():
         fd.write("")
         fd.close()
 
-    # fig = plt.figure()
-    # plt.scatter(np.array(points_list), np.array(consistent_prog_time))
-    # plt.plot(np.array(points_list), np.array(consistent_prog_time), label='Consistent')
-    # plt.scatter(np.array(points_list), np.array(parallel_prog_time))
-    # plt.plot(np.array(points_list), np.array(parallel_prog_time), label='Consistent')
-    # plt.xlabel("points amount")
-    # plt.ylabel("time")
-    # plt.show()
-    # fig.savefig('./images/time.jpg')
+    date = datetime.strftime(datetime.now(), "%d.%m.%Y-%H.%M.%S")
+    time_file_name = r"./manges/" + date + r".jpg"
+
+    fig = plt.figure()
+    plt.scatter(np.array(points_list), np.array(consistent_prog_time))
+    plt.plot(np.array(points_list), np.array(consistent_prog_time), label='Consistent')
+    plt.scatter(np.array(points_list), np.array(parallel_prog_time))
+    plt.plot(np.array(points_list), np.array(parallel_prog_time), label='Parallel')
+    plt.xlabel("points amount")
+    plt.ylabel("time")
+    plt.legend()
+    plt.grid()
+    plt.show()
+    fig.savefig(time_file_name)
 
 if __name__ == '__main__':
     main()
