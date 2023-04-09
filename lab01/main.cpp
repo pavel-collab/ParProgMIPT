@@ -147,16 +147,56 @@ void LeftCornerParallel(int rank, int size, double* u, double* f_arr, int rank_M
         if (rank != 0) {
             double u_prev = 0.0;
             MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
+            u[GetIdx(k+1, 0, rank_M)] = 
+                                        f_arr[GetIdx(k, 0, rank_M)] * tau + 
+                                        (h - tau)/h * u[GetIdx(k, 0, rank_M)] + 
+                                        tau/h * u_prev;
         }
 
         for (int m = 1; m < rank_M; ++m)
-            u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];  
+            u[GetIdx(k+1, m, rank_M)] = 
+                                        f_arr[GetIdx(k, m, rank_M)] * tau + 
+                                        (h - tau)/h * u[GetIdx(k, m, rank_M)] + 
+                                        tau/h * u[GetIdx(k, m-1, rank_M)];  
 
         // каждый процесс, кроме последнего отправляет своему соседу крайнюю
         // правую точку своего промежутка
         if (rank != size-1)
             MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+    }
+}
+
+// Функция производит численно решение задачи с применением схемы: явная четырехточечная схема
+// (реализация для параллельной программы)
+void FourPointScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K, double tau, double h) {
+    for (int k = 0; k < K-1; ++k) {
+        if (rank != 0) {
+            double u_prev = 0.0;
+            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            u[GetIdx(k+1, 0, rank_M)] = 
+                                        f_arr[GetIdx(k, 0, rank_M)] * tau + 
+                                        (tau / (2*h) + tau*tau / (2*h*h)) * u_prev + 
+                                        (tau*tau / (2*h*h) - tau / (2*h)) * u[GetIdx(k, 1, rank_M)] + 
+                                        (1 - tau*tau / (h*h)) * u[GetIdx(k, 0, rank_M)];
+        }
+
+        for (int m = 1; m < rank_M; ++m) {
+            if (m < rank_M-1)
+                u[GetIdx(k+1, m, rank_M)] = 
+                                        f_arr[GetIdx(k, m, rank_M)] * tau + 
+                                        (tau / (2*h) + tau*tau / (2*h*h)) * u[GetIdx(k, m-1, rank_M)] + 
+                                        (tau*tau / (2*h*h) - tau / (2*h)) * u[GetIdx(k, m+1, rank_M)] + 
+                                        (1 - tau*tau / (h*h)) * u[GetIdx(k, m, rank_M)];
+            else // точки на левой границе считаем схемой левого уголка
+                u[GetIdx(k+1, m, rank_M)] = 
+                                        f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * 
+                                        u[GetIdx(k, m, rank_M)] + 
+                                        tau/h * u[GetIdx(k, m-1, rank_M)];
+        }
+
+        if (rank != size-1) {
+            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+        }
     }
 }
 
@@ -238,20 +278,9 @@ int main(int argc, char* argv[]) {
     // ! замеры времени можно ставить в разных местах
     // double start = MPI_Wtime();
 
-    LeftCornerParallel(rank, size, u, f_arr, rank_M, K, tau, h);
-    // for (int k = 0; k < K-1; ++k) {
-    //     if (rank != 0) {
-    //         double u_prev = 0.0;
-    //         MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-    //         u[GetIdx(k+1, 0, rank_M)] = f_arr[GetIdx(k, 0, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, 0, rank_M)] + tau/h * u_prev;
-    //     }
+    // LeftCornerParallel(rank, size, u, f_arr, rank_M, K, tau, h);
 
-    //     for (int m = 1; m < rank_M; ++m)
-    //         u[GetIdx(k+1, m, rank_M)] = f_arr[GetIdx(k, m, rank_M)] * tau + (h - tau)/h * u[GetIdx(k, m, rank_M)] + tau/h * u[GetIdx(k, m-1, rank_M)];  
-
-    //     if (rank != size-1)
-    //         MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
-    // }
+    FourPointScheme(rank, size, u, f_arr, rank_M, K, tau, h);
 
     //! замеры времени можно ставить в разных местах
     // double end = MPI_Wtime();
