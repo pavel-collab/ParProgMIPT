@@ -17,37 +17,37 @@ def ImportDataTimeFileContent(file_name: str) -> list:
 
 def main():
     n_proces = 4
-    points_list = [100, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]
+    points_list = [100, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
 
     consistent_prog_time = []
     parallel_prog_time = []
 
     for points in points_list:
         for i in range(10):
-            subprocess.run(["./a.out", f'{points}', f'{points}'])
-            fd = open("data.txt", "w")
+            subprocess.run(["../a.out", f'{points}', f'{points}'])
+            fd = open("./data.txt", "w")
             fd.write("")
             fd.close()
         res = ImportDataTimeFileContent("time.txt")
         consistent_prog_time.append(np.mean(res))
-        fd = open("time.txt", "w")
+        fd = open("./time.txt", "w")
         fd.write("")
         fd.close()
 
     for points in points_list:
         for i in range(10):
-            subprocess.run(["mpiexec", "-n", f'{n_proces}', "./main", f'{points}', f'{points}'])
-            fd = open("data.txt", "w")
+            subprocess.run(["mpiexec", "-n", f'{n_proces}', "../main", f'{points}', f'{points}'])
+            fd = open("./data.txt", "w")
             fd.write("")
             fd.close()
         res = ImportDataTimeFileContent("time.txt")
         parallel_prog_time.append(np.mean(res))
-        fd = open("time.txt", "w")
+        fd = open("./time.txt", "w")
         fd.write("")
         fd.close()
 
     date = datetime.strftime(datetime.now(), "%d.%m.%Y-%H.%M.%S")
-    time_file_name = r"./manges/" + date + r".jpg"
+    save_file_name = r"../images/acceleration/_" + date + r".jpg"
 
     fig = plt.figure()
     plt.scatter(np.array(points_list), np.array(consistent_prog_time))
@@ -59,7 +59,7 @@ def main():
     plt.legend()
     plt.grid()
     plt.show()
-    fig.savefig(time_file_name)
+    fig.savefig(save_file_name)
 
 if __name__ == '__main__':
     main()

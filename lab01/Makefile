@@ -8,3 +8,4 @@ clear:
 	rm main
 	rm data.txt
 	rm time.txt
+	rm validate.txt
