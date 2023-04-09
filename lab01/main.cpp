@@ -3,7 +3,7 @@
 #include <cstring>
 #include "mpi.h"
 
-#define DEBUG
+// #define DEBUG
 #define pi 3.14159265
 
 // Функция, задающая ДУ
