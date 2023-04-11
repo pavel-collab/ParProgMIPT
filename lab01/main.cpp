@@ -377,11 +377,15 @@ int main(int argc, char* argv[]) {
         fclose(time_out_file);
     }
 
-    // free(u);
+    free(u);
+    u = NULL;
     MPI_Finalize();
 
-    // free(psi_arr);
-    // free(phi_arr);
-    // free(f_arr);
+    free(psi_arr);
+    psi_arr = NULL;
+    free(phi_arr);
+    phi_arr = NULL;
+    free(f_arr);
+    f_arr = NULL;
     return 0;
 }

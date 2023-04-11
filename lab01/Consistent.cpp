@@ -136,6 +136,8 @@ int main(int argc, char* argv[]) {
     }
     int K = atoi(argv[1]);
     int M = atoi(argv[2]);
+    // int K = 100;
+    // int M = 100;
 
     // шаг сетки по времени и по пространству
     double tau = T / K;
@@ -209,9 +211,13 @@ int main(int argc, char* argv[]) {
     Данный кусок памяти вроде как надо чистить.
     Но при попытке поистить его, программа выкидывает double free or corruption.
     */
-    // free(u);
-    // free(psi_arr);
-    // free(phi_arr);
+    free(psi_arr); //* psi_arr -- единственный массив, который освобождается без проблем
+    psi_arr = NULL;
     // free(f_arr);
+    // f_arr = NULL;
+    // free(u);
+    // u = NULL;
+    // free(phi_arr);
+    // phi_arr == NULL;
     return 0;
 }
