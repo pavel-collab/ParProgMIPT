@@ -19,6 +19,11 @@ def ImportDataFileContent(file_name: str) -> list:
     res = np.array(res_list)
     return res.T
 
+def CleanFile(file_path):
+    fd = open(file_path, "w")
+    fd.write("")
+    fd.close()
+
 def main():
     n_proc = 2
     points_list = [4, 10, 50, 100, 500, 1000, 2000]
@@ -26,15 +31,11 @@ def main():
     for points in points_list:
         subprocess.run(["../a.out", f'{points}', f'{points}'])
         validate = ImportDataFileContent("./validate.txt")
-        fd = open("./validate.txt", "w")
-        fd.write("")
-        fd.close()
+        CleanFile("./validate.txt")
 
         subprocess.run(["mpiexec", "-n", f'{n_proc}', "../main", f'{points}', f'{points}'])
         data = ImportDataFileContent("./data.txt")
-        fd = open("./data.txt", "w")
-        fd.write("")
-        fd.close()
+        CleanFile("./data.txt")
 
         # размеры сетки
         K = np.shape(data)[1]
@@ -50,7 +51,7 @@ def main():
         fig = plt.figure()
         ax_3d = fig.add_subplot(projection="3d")
         ax_3d.plot_surface(x_grid, t_grid, data)
-        ax_3d.plot_wireframe(x_grid, t_grid, data, linestyle='-', color='blue', label='Consistent')
+        ax_3d.plot_wireframe(x_grid, t_grid, validate, linestyle='-', color='blue', label='Consistent')
         ax_3d.plot_wireframe(x_grid, t_grid, data, linestyle='--', color='red', label='Parallel')
         ax_3d.set_xlabel("x")
         ax_3d.set_ylabel("t")

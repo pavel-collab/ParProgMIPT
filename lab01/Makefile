@@ -6,6 +6,4 @@ parallel:
 clear:
 	rm a.out
 	rm main
-	rm data.txt
-	rm time.txt
-	rm validate.txt
+	rm *.txt

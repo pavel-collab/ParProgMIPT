@@ -16,6 +16,11 @@ def ImportDataTimeFileContent(file_name: str) -> list:
     res = np.array(res_list)
     return res
 
+def CleanFile(file_path):
+    fd = open(file_path, "w")
+    fd.write("")
+    fd.close()
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--number_of_proc", help="*description*")
@@ -34,26 +39,20 @@ def main():
     for points in points_list:
         for i in range(10):
             subprocess.run(["../a.out", f'{points}', f'{points}'])
-            fd = open("./data.txt", "w")
-            fd.write("")
-            fd.close()
+            CleanFile("./data.txt")
+            
         res = ImportDataTimeFileContent("time.txt")
         consistent_prog_time.append(np.mean(res))
-        fd = open("./time.txt", "w")
-        fd.write("")
-        fd.close()
+        CleanFile("./time.txt")
 
     for points in points_list:
         for i in range(10):
             subprocess.run(["mpiexec", "-n", f'{n_proces}', "../main", f'{points}', f'{points}'])
-            fd = open("./data.txt", "w")
-            fd.write("")
-            fd.close()
+            CleanFile("./data.txt")
+
         res = ImportDataTimeFileContent("time.txt")
         parallel_prog_time.append(np.mean(res))
-        fd = open("./time.txt", "w")
-        fd.write("")
-        fd.close()
+        CleanFile("./time.txt")
 
     date = datetime.strftime(datetime.now(), "%d.%m.%Y-%H.%M.%S")
     save_file_name = r"../images/acceleration/" + f'{n_proces}_proc_' + date + r".jpg"
@@ -67,7 +66,6 @@ def main():
     plt.ylabel("time")
     plt.legend()
     plt.grid()
-    plt.show()
     fig.savefig(save_file_name)
 
 if __name__ == '__main__':
