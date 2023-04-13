@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import argparse
 
 def ImportDataFileContent(file_name: str) -> list:
     res_list = []
@@ -18,7 +19,17 @@ def ImportDataFileContent(file_name: str) -> list:
     return res.T
 
 def main():
-    data = ImportDataFileContent("../data.txt")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--data_file", help="the name of file with numerical solution")
+    args = parser.parse_args()
+
+    if args.data_file != None:
+        data_file_name = args.data_file
+    else:
+        print("You have to input data file")
+        raise RuntimeError
+
+    data = ImportDataFileContent(data_file_name)
 
     # размеры сетки
     K = np.shape(data)[1]
