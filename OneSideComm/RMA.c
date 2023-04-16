@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include <math.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include "mpi.h"
 
-// #define COMPARE
 #define DEBUG
 
 /*
@@ -10,12 +10,42 @@ In the programm we create a chunk of memory, that "shared" between two processes
 And each of two prosess could work with it
 */
 
+double Sum(int start, int end) {
+    double res = 0;
+    for (double i = start; i <= end; ++i) {
+        res += 1/i;
+    }
+    return res;
+}
+
+/*Функция вычисляет частичную сумму 1/n для указанного процесса*/
+double GetRankSumRes(int rank, int size, int N) {
+    int n_range = N / size;
+    int mod_size = N % size;
+    int rank_start, rank_end = 0;
+
+    if (rank < mod_size) {
+        rank_start = rank*(n_range + 1) + 1;
+        rank_end = rank_start + n_range;
+    }
+    else {
+        rank_start = rank*n_range + 1 + mod_size;
+        rank_end = rank_start + n_range - 1;
+    }
+
+    return Sum(rank_start, rank_end);
+}
+
 int main(int argc, char* argv[]) {
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: mpiexec -n 3 %s N\n", argv[0]);
+        return 1;
+    }
+    int N = atoi(argv[1]);
 
     int size = 0;
     int rank = 0;
-    int window_buffer_size = 4;
-
     MPI_Status status;
 
     int rc = MPI_Init(&argc, &argv);
@@ -27,56 +57,33 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (size != 2) {
-        perror("[-] Too many processes. Expected 2 only");
-        MPI_Abort(MPI_COMM_WORLD, rc);
-    }
+    /*window creation*/
+    int win_sz = 0;
+    double res = 0;
 
-    int window_buffer[window_buffer_size];
-    if (rank == 1) {
-        window_buffer[0] = 1;
-        window_buffer[1] = 11;
-        window_buffer[2] = 111;
-        window_buffer[3] = 1111;
-    }    
+    // окно создается только в главном процессе
+    // все остальные процессы только обращаются к нему
+    if (rank == 0)
+        win_sz = 1;
 
-    // Create a window object that will let us to share allocated memory between rank = 1 and rank = 0
+    int dbl_sz = 0;
+    MPI_Type_size(MPI_DOUBLE, &dbl_sz);
     MPI_Win win;
-    MPI_Win_create(&window_buffer, /* pre-allocated buffer */
-               (MPI_Aint)window_buffer_size * sizeof(int), /* size in bytes */
-               sizeof(int), /* displacement units */
-               MPI_INFO_NULL, /* info object */
-               MPI_COMM_WORLD, /* communicator */
-               &win /* window object */);
+    MPI_Win_create(&res, win_sz*dbl_sz, dbl_sz, MPI_INFO_NULL, MPI_COMM_WORLD, &win);
 
-    /*
-    Every rank has now a window, but only the window on rank 1 has values different from 0.
-    */
-    
-    // Before doing anything on the window, we need to start an access epoch
-    MPI_Win_fence(0, /* assertion */
-              win /* window object */);
+    double rank_res = GetRankSumRes(rank, size, N);
+
+    /*Accumulate rank_res in window*/
+    // Прежде, чем обращаться к окну всегда надо вызывать функцию синхронизации
+    MPI_Win_fence(0, win);
+    MPI_Accumulate(&rank_res, 1, MPI_DOUBLE, 0, 0, 1, MPI_DOUBLE, MPI_SUM, win);
+    MPI_Win_fence(0, win);
 
     if (rank == 0) {
-        int local_buf[window_buffer_size];
-        MPI_Get(&local_buf, /* pre-allocated buffer on RMA origin process */
-          window_buffer_size, /* count on RMA origin process */
-          MPI_INT, /* type on RMA origin process */
-          1, /* rank of RMA target process */
-          0, /* displacement on RMA target process */
-          window_buffer_size, /* count on RMA target process */
-          MPI_INT, /* type on RMA target process */
-          win /* window object */);
-
-        printf("[rank %d] the data, we get from the shared window:\n", rank);
-        for (int i = 0; i < window_buffer_size; ++i) {
-            printf("local_buf[%d] = %d\n", i, local_buf[i]);
-        }
+        sleep(5);
+        printf("res is %lf\n", res);
     }
 
-    // this access epoch is closed
-    MPI_Win_fence(0, /* assertion */
-              win /* window object */);
 
     MPI_Win_free(&win);
     MPI_Finalize();
