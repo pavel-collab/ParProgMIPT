@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
     double end = MPI_Wtime();
     double rank_time = (end - start)*1000;
 
-    // std::cout << "rank [" << rank << "] " << rank_time << " ms \n";
+    std::cout << "rank [" << rank << "] " << rank_time << " ms \n";
 
     const char* time_file_name = "time.txt";
     if (rank != 0) {

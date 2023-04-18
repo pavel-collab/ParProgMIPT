@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
     Merge(arr, 0, N-1);
 
     auto t_end = std::chrono::high_resolution_clock::now();
-    // std::cout << "consistent " << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
+    std::cout << "consistent " << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
 
     const char* result_file_name = "consistent.txt";
     PrintArray2File(result_file_name, arr, N);
