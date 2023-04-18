@@ -213,11 +213,11 @@ int main(int argc, char* argv[]) {
 
     std::cout << "rank [" << rank << "] " << rank_time << " ms \n";
 
-    if (rank == 0) {
-        for (int i = 0; i < N; ++i) {
-            std::cout << x_ptr[i] << std::endl;
-        }
-    }
+    // if (rank == 0) {
+    //     for (int i = 0; i < N; ++i) {
+    //         std::cout << x_ptr[i] << std::endl;
+    //     }
+    // }
 
     free(arr);
     arr = NULL;
@@ -226,3 +226,10 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+//TODO: пересмотреть точки замера времени
+//TODO: сделать вывод отсортированного массива в файл
+//TODO: сгенерировать большие тесты
+//TODO: написать скрипт для валидации
+//TODO: написать запись времени в файл для обеих програм
+//TODO: написать скрипт для тестирования
