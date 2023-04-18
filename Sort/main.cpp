@@ -145,6 +145,8 @@ int main(int argc, char* argv[]) {
         MPI_Abort(MPI_COMM_WORLD, rc);
     }
 
+    double start = MPI_Wtime();
+
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
@@ -208,6 +210,11 @@ int main(int argc, char* argv[]) {
         m = 2*m;
     }
 
+    double end = MPI_Wtime();
+    double rank_time = (end - start)*1000;
+
+    std::cout << "rank [" << rank << "] " << rank_time << " ms \n";
+
     if (rank == 0) {
         for (int i = 0; i < N; ++i) {
             std::cout << x_ptr[i] << std::endl;
@@ -221,12 +228,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
-/*
-0        1      2       3
-[3, 13] [1, 8] [2, 15] [3, 7]
-
-
-0              2
-[1, 3, 8, 13] [2, 3, 7, 15]
-*/

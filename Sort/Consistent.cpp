@@ -1,5 +1,42 @@
 #include <iostream>
 #include <fstream>
+#include <fstream>
+#include <cstring>
+#include <sstream>
+#include <chrono>
+
+//! не забываем освобождать массив в конце программы
+int* GetArrayFromFile(const char* file_name, int* size) {
+    std::string s;
+    int n = 0;
+    std::fstream file(file_name);
+    if (!file.is_open()) {
+        printf("[-] File open error\n");
+        return nullptr;
+    }
+
+    getline(file, s);
+    n = atoi(s.c_str());
+    *size = n;
+
+    getline(file, s);
+    file.close();
+
+    int* arr = (int*) calloc(n, sizeof(int));
+    int idx = 0;
+
+    const int N = 256;      //Максимальная длина строки
+    char word[N] = {};          //Буфер для считывания строки
+
+    std::stringstream x;        //Создание потоковой переменной
+    x << s;                //Перенос строки в поток
+    while (x >> word) {
+        arr[idx] = atoi(word);
+        idx++;
+    } //выборка слов
+
+    return arr;
+}
 
 void PrintArray(int* arr, unsigned N) {
     for (size_t i = 0; i < N; ++i) {
@@ -84,13 +121,27 @@ void Merge(int* arr, unsigned n1, unsigned n2) {
     }
 }
 
-int main(int argc, char* atgv[]) {
+int main(int argc, char* argv[]) {
 
-    unsigned N = 1;    
-    int arr[] {1};
+    if (argc != 2) {
+        fprintf(stderr, "Usage %s file_name\n", argv[0]);
+        return 1;
+    }
+
+    const char* file_name = argv[1];
+    int N = 0;
+    int* arr = GetArrayFromFile(file_name, &N);
+
+    auto t_start = std::chrono::high_resolution_clock::now();
 
     Merge(arr, 0, N-1);
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    std::cout << "consistent " << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
+
     PrintArray(arr, N);
+
+    free(arr);
     
     return 0;
 }
