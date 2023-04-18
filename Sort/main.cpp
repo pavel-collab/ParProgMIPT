@@ -105,10 +105,6 @@ void Merge(int* arr, unsigned n1, unsigned n2) {
     }
 }
 
-// int* GetArrayFromFile(const char* file_name) {
-
-// }
-
 int main(int argc, char* argv[]) {
     int size = 0;
     int rank = 0;
@@ -122,12 +118,14 @@ int main(int argc, char* argv[]) {
     int N = 0;
     int* arr = GetArrayFromFile(file_name, &N);
 
+    // сколько элементов надопередать для каждого процесса
     int* raz = (int*) calloc(N_proc, sizeof(int));
+    // какое смещение надо взять для каждого процесса
     int* dist = (int*) calloc(N_proc, sizeof(int));
     int dist_val = 0;
     for (int proc = 0; proc < N_proc; ++proc) {
         int k = 0;
-        if (rank < N%N_proc)
+        if (proc < N%N_proc)
             k = N/N_proc + 1;
         else
             k = N/N_proc;
@@ -165,6 +163,14 @@ int main(int argc, char* argv[]) {
     MPI_Scatterv(arr, raz, dist, MPI_INT, x_ptr, k, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     Merge(x_ptr, 0, k-1);
 
+    #ifdef DEBUG
+    std::cout << "rank " << rank << std::endl;
+    for (int i = 0; i < k; ++i){
+        std::cout << x_ptr[i] << std::endl;
+    }
+    std::cout << std::endl;
+    #endif //DEBUG
+
     int s = size, m = 1;
     while (s > 1) {
         s = s/2 + s%2;
@@ -198,14 +204,6 @@ int main(int argc, char* argv[]) {
             free(y);
 
             k = k + k1;
-            
-            #ifdef DEBUG
-            std::cout << "rank " << rank << std::endl;
-            for (int i = 0; i < k; ++i){
-                std::cout << x_ptr[i] << std::endl;
-            }
-            std::cout << "s = " << s << std::endl;
-            #endif //DEBUG
         }
         m = 2*m;
     }
