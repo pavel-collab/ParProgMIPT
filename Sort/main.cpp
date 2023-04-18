@@ -7,6 +7,24 @@
 
 // #define DEBUG
 
+void PrintArray(int* arr, unsigned N) {
+    for (size_t i = 0; i < N; ++i) {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
+void PrintArray2File(const char* file_name, int* arr, unsigned N) {
+    std::ofstream file{file_name};
+    if (file.is_open()) {
+        for (size_t i = 0; i < N; ++i) {
+            file << arr[i] << " ";
+        }
+        file << std::endl;
+    }
+    file.close();
+}
+
 //! не забываем освобождать массив в конце программы
 int* GetArrayFromFile(const char* file_name, int* size) {
     std::string s;
@@ -211,13 +229,25 @@ int main(int argc, char* argv[]) {
     double end = MPI_Wtime();
     double rank_time = (end - start)*1000;
 
-    std::cout << "rank [" << rank << "] " << rank_time << " ms \n";
+    // std::cout << "rank [" << rank << "] " << rank_time << " ms \n";
 
-    // if (rank == 0) {
-    //     for (int i = 0; i < N; ++i) {
-    //         std::cout << x_ptr[i] << std::endl;
-    //     }
-    // }
+    const char* time_file_name = "time.txt";
+    if (rank != 0) {
+        int special_signal = 0;
+        MPI_Recv(&special_signal, 1, MPI_INT, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    FILE* fd = fopen(time_file_name, "a");
+    fprintf(fd, "%lf ", rank_time);
+    fclose(fd);
+    if (rank != size-1) {
+        int special_signal = 69;
+        MPI_Send(&special_signal, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
+    }
+
+    const char* result_file_name = "parallel.txt";
+    if (rank == 0) {
+        PrintArray2File(result_file_name, x_ptr, N);
+    }
 
     free(arr);
     arr = NULL;

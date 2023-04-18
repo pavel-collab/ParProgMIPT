@@ -39,7 +39,6 @@ def main():
     file_path = "../tests/"
 
     size_list = [50, 100, 200, 500, 1000, 2000, 3000, 5000, 8000, 10000, 12000, 14000, 16000, 18000, 20000]
-    # size_list = [50, 100, 200, 500, 1000, 2000, 3000, 5000]
 
     for size in size_list:
         file_name = "test" + str(size) + ".dat"
