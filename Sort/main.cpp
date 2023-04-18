@@ -1,8 +1,44 @@
 #include <iostream>
 #include <cassert>
+#include <fstream>
+#include <cstring>
+#include <sstream>
 #include "mpi.h"
 
 // #define DEBUG
+
+//! не забываем освобождать массив в конце программы
+int* GetArrayFromFile(const char* file_name, int* size) {
+    std::string s;
+    int n = 0;
+    std::fstream file(file_name);
+    if (!file.is_open()) {
+        printf("[-] File open error\n");
+        return nullptr;
+    }
+
+    getline(file, s);
+    n = atoi(s.c_str());
+    *size = n;
+
+    getline(file, s);
+    file.close();
+
+    int* arr = (int*) calloc(n, sizeof(int));
+    int idx = 0;
+
+    const int N = 256;      //Максимальная длина строки
+    char word[N] = {};          //Буфер для считывания строки
+
+    std::stringstream x;        //Создание потоковой переменной
+    x << s;                //Перенос строки в поток
+    while (x >> word) {
+        arr[idx] = atoi(word);
+        idx++;
+    } //выборка слов
+
+    return arr;
+}
 
 //! следим за тем, чтобы функция копирования не выходила за границу массива 
 void CopyArray(int* src, int* dst, unsigned a, unsigned b) {
@@ -69,19 +105,23 @@ void Merge(int* arr, unsigned n1, unsigned n2) {
     }
 }
 
-int main(int argc, char* argv[]) {
+// int* GetArrayFromFile(const char* file_name) {
 
+// }
+
+int main(int argc, char* argv[]) {
     int size = 0;
     int rank = 0;
 
-    int arr[] = {3, 13, 8, 1, 15, 2, 3, 7};
-    int N = 8;
-
-    if (argc != 2) {
-        fprintf(stderr, "expected more arguments\n");
+    if (argc != 3) {
+        fprintf(stderr, "Usage mpiexec -n n_proc %s file_name n_proc\n", argv[0]);
         return 1;
     }
-    int N_proc = atoi(argv[1]);
+    int N_proc = atoi(argv[2]);
+    const char* file_name = argv[1];
+    int N = 0;
+    int* arr = GetArrayFromFile(file_name, &N);
+
     int* raz = (int*) calloc(N_proc, sizeof(int));
     int* dist = (int*) calloc(N_proc, sizeof(int));
     int dist_val = 0;
@@ -173,6 +213,9 @@ int main(int argc, char* argv[]) {
             std::cout << x_ptr[i] << std::endl;
         }
     }
+
+    free(arr);
+    arr = NULL;
 
     MPI_Finalize();
 
