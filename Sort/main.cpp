@@ -227,6 +227,11 @@ int main(int argc, char* argv[]) {
         m = 2*m;
     }
 
+    const char* result_file_name = "parallel.txt";
+    if (rank == 0) {
+        PrintArray2File(result_file_name, x_ptr, N);
+    }
+
     double end = MPI_Wtime();
     double rank_time = (end - start)*1000;
 
@@ -245,11 +250,6 @@ int main(int argc, char* argv[]) {
         MPI_Send(&special_signal, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
     }
 
-    const char* result_file_name = "parallel.txt";
-    if (rank == 0) {
-        PrintArray2File(result_file_name, x_ptr, N);
-    }
-
     free(arr);
     arr = NULL;
 
@@ -257,7 +257,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
-//TODO: пересмотреть точки замера времени
-//TODO: сгенерировать большие тесты
-//TODO: написать скрипт для тестирования
