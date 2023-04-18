@@ -48,6 +48,7 @@ void PrintArray(int* arr, unsigned N) {
 void PrintArray2File(const char* file_name, int* arr, unsigned N) {
     std::ofstream file{file_name};
     if (file.is_open()) {
+        file << N << "\n";
         for (size_t i = 0; i < N; ++i) {
             file << arr[i] << " ";
         }

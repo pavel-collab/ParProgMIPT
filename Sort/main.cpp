@@ -17,6 +17,7 @@ void PrintArray(int* arr, unsigned N) {
 void PrintArray2File(const char* file_name, int* arr, unsigned N) {
     std::ofstream file{file_name};
     if (file.is_open()) {
+        file << N << "\n";
         for (size_t i = 0; i < N; ++i) {
             file << arr[i] << " ";
         }
@@ -258,8 +259,5 @@ int main(int argc, char* argv[]) {
 }
 
 //TODO: пересмотреть точки замера времени
-//TODO: сделать вывод отсортированного массива в файл
 //TODO: сгенерировать большие тесты
-//TODO: написать скрипт для валидации
-//TODO: написать запись времени в файл для обеих програм
 //TODO: написать скрипт для тестирования

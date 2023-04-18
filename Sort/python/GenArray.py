@@ -28,9 +28,8 @@ def GenBadCase(low, high, size, file_path):
     
     fd = open(file_path, "w")
     fd.write(str(gen_array_size) + "\n")
-    for i in range(gen_array_size-1):
-        fd.write(str(gen_array[i]) + ", ")
-    fd.write(str(gen_array[-1]))
+    for item in gen_array:
+        fd.write(str(item) + " ")
     fd.close()
 
 def main():
