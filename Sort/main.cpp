@@ -2,6 +2,8 @@
 #include <cassert>
 #include "mpi.h"
 
+// #define DEBUG
+
 //! следим за тем, чтобы функция копирования не выходила за границу массива 
 void CopyArray(int* src, int* dst, unsigned a, unsigned b) {
     unsigned dst_itr = 0;
@@ -95,15 +97,6 @@ int main(int argc, char* argv[]) {
         raz[proc] = k;
     }
 
-    // for (int i = 0; i < N_proc; ++i) {
-    //     std::cout << raz[i] << " ";
-    // }
-    // std::cout << std::endl << std::endl;
-    // for (int i = 0; i < N_proc; ++i) {
-    //     std::cout << dist[i] << " ";
-    // }
-    // std::cout << std::endl;
-
     MPI_Status status;
 
     int rc = MPI_Init(&argc, &argv);
@@ -124,65 +117,73 @@ int main(int argc, char* argv[]) {
 
     MPI_Bcast (&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+    int* x_ptr = nullptr;
     int* x = (int*) calloc(k, sizeof(int));
-    MPI_Scatterv(arr, raz, dist, MPI_INT, x, k, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    x_ptr = x;
+    MPI_Scatterv(arr, raz, dist, MPI_INT, x_ptr, k, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    Merge(x_ptr, 0, k-1);
 
-    // std::cout << "rank " << rank << std::endl;
-    // for (int i = 0; i < k; ++i){
-    //     std::cout << x[i] << std::endl;
-    // }
-    // std::cout << std::endl;
+    int s = size, m = 1;
+    while (s > 1) {
+        s = s/2 + s%2;
+        // правые процессы отравляют длину массива и сам массив
+        if((rank-m)%(2*m) == 0) {            
+            MPI_Send(&k, 1, MPI_INT, rank-m, 0, MPI_COMM_WORLD);
+            MPI_Send(x_ptr, k, MPI_INT, rank-m, 0, MPI_COMM_WORLD);
+        }
 
-    Merge(x, 0, k-1);
+        // левые процессы принимают массивы
+        if((rank%(2*m) == 0) && (size - rank > m)) {
+            MPI_Status status;
+            int k1 = 0;
 
-    std::cout << "rank " << rank << std::endl;
-    for (int i = 0; i < k; ++i){
-        std::cout << x[i] << std::endl;
+            MPI_Recv(&k1, 1, MPI_INT, rank+m, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            int* y = (int*) calloc(k+k1, sizeof(int));
+            MPI_Recv(y, k1, MPI_INT, rank+m, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
+            // соединяем 2 массива
+            for (int i = 0; i < k; i++)
+                y[i+k1] = x_ptr[i];
+
+            // делаем перераспределение внутри массива
+            Bond(y, 0, k1-1, k+k1-1);
+
+            int* x_new = (int*) calloc(k+k1, sizeof(int));
+            x_ptr = x_new;
+
+            for (int i = 0; i < k+k1; i++)
+                x_ptr[i] = y[i];
+            free(y);
+
+            k = k + k1;
+            
+            #ifdef DEBUG
+            std::cout << "rank " << rank << std::endl;
+            for (int i = 0; i < k; ++i){
+                std::cout << x_ptr[i] << std::endl;
+            }
+            std::cout << "s = " << s << std::endl;
+            #endif //DEBUG
+        }
+        m = 2*m;
     }
-    std::cout << std::endl;
 
-    // int s = size, m = 1;
-    // while (s > 1) {
-    //     s = s/2 + s%2;
-    //     // правые процессы отравляют длину массива и сам массив
-    //     if((rank-m)%(2*m) == 0) {
-    //         MPI_Send(&k, 1, MPI_INT, rank-m, 0, MPI_COMM_WORLD);
-    //         MPI_Send(x, k, MPI_INT, rank-m, 0, MPI_COMM_WORLD);
-    //     }
-
-    //     // левые процессы принимают массивы
-    //     if((rank%(2*m) == 0) && (size - rank > m)) {
-    //         MPI_Status status;
-    //         int k1 = 0;
-
-    //         MPI_Recv(&k1, 1, MPI_INT, rank+m, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-    //         int* y = (int*) calloc(k+k1, sizeof(int));
-    //         MPI_Recv(y, k1, MPI_INT, rank+m, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
-    //         // соединяем 2 массива
-    //         for (int i = 0; i < k; i++)
-    //             y[i+k1] = x[i];
-
-    //         // делаем перераспределение внутри массива
-    //         Bond(y, 0, k1-1, k+k1-1);
-
-    //         int* x = (int*) calloc(k+k1, sizeof(int));
-
-    //         for (int i = 0; i < k+k1; i++)
-    //             x[i] = y[i];
-
-    //         k = k + k1;
-    //     }
-    //     m = 2*m;
-    // }
-
-    // if (rank == 0) {
-    //     for (int i = 0; i < N; ++i) {
-    //         std::cout << x[i] << std::endl;
-    //     }
-    // }
+    if (rank == 0) {
+        for (int i = 0; i < N; ++i) {
+            std::cout << x_ptr[i] << std::endl;
+        }
+    }
 
     MPI_Finalize();
 
     return 0;
 }
+
+/*
+0        1      2       3
+[3, 13] [1, 8] [2, 15] [3, 7]
+
+
+0              2
+[1, 3, 8, 13] [2, 3, 7, 15]
+*/
