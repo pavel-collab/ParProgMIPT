@@ -171,17 +171,9 @@ void LeftCornerParallel(int rank, int size, double* u, double* f_arr, int rank_M
 // Функция производит численно решение задачи с применением схемы: явная четырехточечная схема
 // (реализация для параллельной программы)
 void FourPointScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K, int M, double tau, double h) {
+    MPI_Request request = MPI_REQUEST_NULL; // структура, необходимая для использования неблокирующих операций
+    MPI_Status status;
     for (int k = 0; k < K-1; ++k) {
-        if (rank != 0) {
-            double u_prev = 0.0;
-            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            u[GetIdx(k+1, 0, rank_M)] = 
-                                        f_arr[GetIdx(k, 0 + rank*rank_M, M)] * tau + 
-                                        (tau / (2*h) + tau*tau / (2*h*h)) * u_prev + 
-                                        (tau*tau / (2*h*h) - tau / (2*h)) * u[GetIdx(k, 1, rank_M)] + 
-                                        (1 - tau*tau / (h*h)) * u[GetIdx(k, 0, rank_M)];
-        }
-
         for (int m = 1; m < rank_M; ++m) {
             if (m < rank_M-1)
                 u[GetIdx(k+1, m, rank_M)] = 
@@ -197,7 +189,18 @@ void FourPointScheme(int rank, int size, double* u, double* f_arr, int rank_M, i
         }
 
         if (rank != size-1) {
-            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+            MPI_Isend(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD, &request);
+        }
+
+        if (rank != 0) {
+            double u_prev = 0.0;
+            MPI_Irecv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &request); //destination process receives
+            MPI_Wait(&request, &status);
+            u[GetIdx(k+1, 0, rank_M)] = 
+                                        f_arr[GetIdx(k, 0 + rank*rank_M, M)] * tau + 
+                                        (tau / (2*h) + tau*tau / (2*h*h)) * u_prev + 
+                                        (tau*tau / (2*h*h) - tau / (2*h)) * u[GetIdx(k, 1, rank_M)] + 
+                                        (1 - tau*tau / (h*h)) * u[GetIdx(k, 0, rank_M)];
         }
     }
 }
@@ -205,19 +208,10 @@ void FourPointScheme(int rank, int size, double* u, double* f_arr, int rank_M, i
 // Функция производит численно решение задачи с применением схемы: крест
 // (реализация для параллельной программы)
 void CrossScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K, int M, double tau, double h) {
+    MPI_Request request = MPI_REQUEST_NULL;
+    MPI_Status status;
     // обсчитываем первый слой схемой уголка (k = 0)
     //------------------------------------------------------------------------------------------
-    // Каждый процесс, кроме нулевого должен получить от предыдущего процесса 
-    // крайнюю левую точку для старта расчета своего промежутка
-    if (rank != 0) {
-        double u_prev = 0.0;
-        MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        u[GetIdx(1, 0, rank_M)] = 
-                                    f_arr[GetIdx(0, 0 + rank*rank_M, M)] * tau + 
-                                    (h - tau)/h * u[GetIdx(0, 0, rank_M)] + 
-                                    tau/h * u_prev;
-    }
-
     for (int m = 1; m < rank_M; ++m)
         u[GetIdx(1, m, rank_M)] = 
                                     f_arr[GetIdx(0, m + rank*rank_M, M)] * tau + 
@@ -227,21 +221,22 @@ void CrossScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K
     // каждый процесс, кроме последнего отправляет своему соседу крайнюю
     // правую точку своего промежутка
     if (rank != size-1)
-        MPI_Send(&u[GetIdx(0, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 1, MPI_COMM_WORLD);
+        MPI_Isend(&u[GetIdx(0, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 1, MPI_COMM_WORLD, &request);
+
+    // Каждый процесс, кроме нулевого должен получить от предыдущего процесса 
+    // крайнюю левую точку для старта расчета своего промежутка
+    if (rank != 0) {
+        double u_prev = 0.0;
+        MPI_Irecv(&u_prev, 1, MPI_DOUBLE, rank-1, 1, MPI_COMM_WORLD, &request); //destination process receives
+        MPI_Wait(&request, &status);
+        u[GetIdx(1, 0, rank_M)] = 
+                                    f_arr[GetIdx(0, 0 + rank*rank_M, M)] * tau + 
+                                    (h - tau)/h * u[GetIdx(0, 0, rank_M)] + 
+                                    tau/h * u_prev;
+    }
     //------------------------------------------------------------------------------------------
 
     for (int k = 1; k < K-1; ++k) {
-        if (rank != 0) {
-            double u_prev = 0.0;
-            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            u[GetIdx(k+1, 0, rank_M)] = 
-                                        f_arr[GetIdx(k, 0 + rank*rank_M, M)] * 2*tau + 
-                                        u[GetIdx(k-1, 0, rank_M)] + 
-                                        (
-                                            u_prev - u[GetIdx(k, 1, rank_M)]
-                                        ) * tau / h;
-        }
-
         for (int m = 1; m < rank_M; ++m) {
             if (m < rank_M-1) 
                 u[GetIdx(k+1, m, rank_M)] = 
@@ -258,7 +253,19 @@ void CrossScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K
         }
 
         if (rank != size-1) {
-            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+            MPI_Isend(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD, &request);
+        }
+
+        if (rank != 0) {
+            double u_prev = 0.0;
+            MPI_Irecv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &request); //destination process receives
+            MPI_Wait(&request, &status);
+            u[GetIdx(k+1, 0, rank_M)] = 
+                                        f_arr[GetIdx(k, 0 + rank*rank_M, M)] * 2*tau + 
+                                        u[GetIdx(k-1, 0, rank_M)] + 
+                                        (
+                                            u_prev - u[GetIdx(k, 1, rank_M)]
+                                        ) * tau / h;
         }
     }
 }
@@ -339,7 +346,7 @@ int main(int argc, char* argv[]) {
 
     //---------------------------------------Расчетная схема №1---------------------------------------
     //---------------------------------------Явный левый уголок---------------------------------------
-    LeftCornerParallel(rank, size, u, f_arr, rank_M, K, M, tau, h);
+    // LeftCornerParallel(rank, size, u, f_arr, rank_M, K, M, tau, h);
     //------------------------------------------------------------------------------------------------
 
     //---------------------------------------Расчетная схема №2---------------------------------------
@@ -349,7 +356,7 @@ int main(int argc, char* argv[]) {
 
     //---------------------------------------Расчетная схема №3---------------------------------------
     //---------------------------------------------Крест----------------------------------------------
-    // CrossScheme(rank, size, u, f_arr, rank_M, K, M, tau, h);
+    CrossScheme(rank, size, u, f_arr, rank_M, K, M, tau, h);
     //------------------------------------------------------------------------------------------------
 
     const char* data_file_name = "data.txt";

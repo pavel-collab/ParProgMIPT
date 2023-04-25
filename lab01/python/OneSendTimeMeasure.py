@@ -18,8 +18,7 @@ def ImportDataTimeFileContent(file_name: str) -> list:
 def main():
     N_list = np.array([
         10000, 50000, 100000, 500000, 1000000,
-        5000000, 10000000, 50000000, 100000000,
-        500000000, 1000000000, 5000000000, 10000000000   
+        5000000, 10000000, 50000000, 100000000  
     ])
 
     for N in N_list:
@@ -35,6 +34,7 @@ def main():
     plt.xlabel("Execs")
     plt.ylabel("time")
     plt.grid()
+    plt.show()
     # fig.savefig(save_file_name)
 
 if __name__ == '__main__':
