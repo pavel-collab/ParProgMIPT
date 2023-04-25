@@ -127,26 +127,9 @@ void PutData2FileParallel(int rank, int size, const char* data_file_name, double
 // tau -- шаг сетки временного диапазона
 // h -- шаг сетки пространственного диапазона
 void LeftCornerParallel(int rank, int size, double* u, double* f_arr, int rank_M, int K, int M, double tau, double h) {
+    MPI_Request request = MPI_REQUEST_NULL; // структура, необходимая для использования неблокирующих операций
+    MPI_Status status;
     for (int k = 0; k < K-1; ++k) {
-        // Каждый процесс, кроме нулевого должен получить от предыдущего процесса 
-        // крайнюю левую точку для старта расчета своего промежутка
-        if (rank != 0) {
-            double u_prev = 0.0;
-            MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            /* 
-            * Pay for attention to f_arr[GetIdx(k, 0 + rank*rank_M, M)].
-            * Firstly: as we didn't destribute f_arr for each process, but use single f_arr,
-            * we must address for this array by spesial index.
-            * Secondly: temporary solution -- we addres to f_arr in each proc by idx
-            * GetIdx(k, m + rank*rank_M, M), so, we must run the programm only if 
-            * total cells amount divide by proces amount.
-            */
-            u[GetIdx(k+1, 0, rank_M)] = 
-                                        f_arr[GetIdx(k, 0 + rank*rank_M, M)] * tau + 
-                                        (h - tau)/h * u[GetIdx(k, 0, rank_M)] + 
-                                        tau/h * u_prev;
-        }
-
         for (int m = 1; m < rank_M; ++m)
             u[GetIdx(k+1, m, rank_M)] = 
                                         f_arr[GetIdx(k, m + rank*rank_M, M)] * tau + 
@@ -155,8 +138,33 @@ void LeftCornerParallel(int rank, int size, double* u, double* f_arr, int rank_M
 
         // каждый процесс, кроме последнего отправляет своему соседу крайнюю
         // правую точку своего промежутка
-        if (rank != size-1)
-            MPI_Send(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD);
+        if (rank != size-1) {
+            // Используем неблокирующую посылку для увеличения производительности
+            MPI_Isend(&u[GetIdx(k, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD, &request);
+        }
+
+        // Каждый процесс, кроме нулевого должен получить от предыдущего процесса 
+        // крайнюю левую точку для старта расчета своего промежутка
+        if (rank != 0) {
+            double u_prev = 0.0;
+            // Неблокирующий прием
+            MPI_Irecv(&u_prev, 1, MPI_DOUBLE, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &request); //destination process receives
+            /* 
+            * Pay for attention to f_arr[GetIdx(k, 0 + rank*rank_M, M)].
+            * Firstly: as we didn't destribute f_arr for each process, but use single f_arr,
+            * we must address for this array by spesial index.
+            * Secondly: temporary solution -- we addres to f_arr in each proc by idx
+            * GetIdx(k, m + rank*rank_M, M), so, we must run the programm only if 
+            * total cells amount divide by proces amount.
+            */
+
+            // Синхронизация. Перед расчетом этой точки обязательно надо получить значение от предыдущего процесса.
+            MPI_Wait(&request, &status);
+            u[GetIdx(k+1, 0, rank_M)] = 
+                                        f_arr[GetIdx(k, 0 + rank*rank_M, M)] * tau + 
+                                        (h - tau)/h * u[GetIdx(k, 0, rank_M)] + 
+                                        tau/h * u_prev;
+        }
     }
 }
 
@@ -204,13 +212,10 @@ void CrossScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K
     if (rank != 0) {
         double u_prev = 0.0;
         MPI_Recv(&u_prev, 1, MPI_DOUBLE, rank-1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        // printf("rank [%d] recv value %lf\n", rank, u_prev);
         u[GetIdx(1, 0, rank_M)] = 
                                     f_arr[GetIdx(0, 0 + rank*rank_M, M)] * tau + 
                                     (h - tau)/h * u[GetIdx(0, 0, rank_M)] + 
                                     tau/h * u_prev;
-        // printf("rank [%d] tau is equal %lf, h is equal %lf, tau/h is equal %lf\n", rank, tau, h, tau/h);
-        // printf("rank [%d] the multiplication give us %lf, the answer is %lf\n", rank, tau/h * u_prev, u[GetIdx(1, 0, rank_M)]);
     }
 
     for (int m = 1; m < rank_M; ++m)
@@ -221,10 +226,8 @@ void CrossScheme(int rank, int size, double* u, double* f_arr, int rank_M, int K
 
     // каждый процесс, кроме последнего отправляет своему соседу крайнюю
     // правую точку своего промежутка
-    if (rank != size-1) {
+    if (rank != size-1)
         MPI_Send(&u[GetIdx(0, rank_M-1, rank_M)], 1, MPI_DOUBLE, rank+1, 1, MPI_COMM_WORLD);
-        // printf("rank [%d] send value %lf\n", rank, u[GetIdx(0, rank_M-1, rank_M)]);
-    }
     //------------------------------------------------------------------------------------------
 
     for (int k = 1; k < K-1; ++k) {
@@ -327,21 +330,16 @@ int main(int argc, char* argv[]) {
     #endif //DEBUG
 
     double* u     = (double*) malloc(K*rank_M*sizeof(double));
-    // u(0, x) = phi(x)
     for (int i = rank_M_start; i <= rank_M_end; ++i)
         u[GetIdx(0, i-rank_M*rank, rank_M)] = phi_arr[i];
     if (rank == 0) {
-        // u(t, 0) = psi(t)
         for (int i = 0; i < K; ++i)
             u[GetIdx(i, 0, rank_M)] = psi_arr[i];
     }
 
-    // ! замеры времени можно ставить в разных местах
-    // double start = MPI_Wtime();
-
     //---------------------------------------Расчетная схема №1---------------------------------------
     //---------------------------------------Явный левый уголок---------------------------------------
-    // LeftCornerParallel(rank, size, u, f_arr, rank_M, K, M, tau, h);
+    LeftCornerParallel(rank, size, u, f_arr, rank_M, K, M, tau, h);
     //------------------------------------------------------------------------------------------------
 
     //---------------------------------------Расчетная схема №2---------------------------------------
@@ -351,12 +349,8 @@ int main(int argc, char* argv[]) {
 
     //---------------------------------------Расчетная схема №3---------------------------------------
     //---------------------------------------------Крест----------------------------------------------
-    CrossScheme(rank, size, u, f_arr, rank_M, K, M, tau, h);
+    // CrossScheme(rank, size, u, f_arr, rank_M, K, M, tau, h);
     //------------------------------------------------------------------------------------------------
-    
-
-    //! замеры времени можно ставить в разных местах
-    // double end = MPI_Wtime();
 
     const char* data_file_name = "data.txt";
     PutData2FileParallel(rank, size, data_file_name, u, rank_M, K);

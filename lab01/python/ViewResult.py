@@ -47,7 +47,7 @@ def main():
     ax_3d.set_ylabel("t")
     ax_3d.set_zlabel("u")
     plt.show()
-    fig.savefig("../images/solution.jpg")
+    # fig.savefig("../images/solution.jpg")
 
 if __name__ == '__main__':
     main()
