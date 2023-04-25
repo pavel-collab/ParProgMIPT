@@ -24,6 +24,7 @@ def CleanFile(file_path):
 def main():
     n_proc_list = [2, 4, 5, 8]
     points_list = [8000, 10000, 12000]
+    # points_list = [16000, 18000, 20000]
 
     fig = plt.figure()
 
