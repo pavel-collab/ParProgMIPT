@@ -13,15 +13,77 @@
 #include <semaphore.h>
 
 #define DEBUG
+#define LOG
 #define STACK_LIMIT 10 // верхняя граница на количество записей в стеке
 #define TRANSMIT_SIZE 6 // столько записей переносим за раз из локального стека в глобальный
 
 // man pthread_create
 //! Линковать с динамической библиотекой -pthread
 
+const char* thread0_file = "thread0.log";
+const char* thread1_file = "thread1.log";
+const char* global_file  = "global.log";
+
 double f(double x) {
     return x*x;
 }
+
+void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
+    fprintf(stream, "Stack top\n");
+    fprintf(stream, "\tA   = %lf\n", stack.top()["A"]  );
+    fprintf(stream, "\tB   = %lf\n", stack.top()["B"]  );
+    fprintf(stream, "\tfa  = %lf\n", stack.top()["fa"] );
+    fprintf(stream, "\tfb  = %lf\n", stack.top()["fb"] );
+    fprintf(stream, "\tSab = %lf\n", stack.top()["Sab"]);
+}
+
+void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
+    //копируем в локальную переменную, чтобы не портить стек
+    std::stack<std::unordered_map<std::string, double>> copy_stack = stack;
+    while(copy_stack.size() != 0) {
+        PrintStackTop(stream, copy_stack);
+        copy_stack.pop();
+    }
+}
+
+// --------------------------------------------------------------------------------------------
+void Push2StackLog(
+    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
+) {
+    FILE* fd = NULL;
+    if (id == 0)
+        fd = fopen(thread0_file, "a");
+    else
+        fd = fopen(thread1_file, "a");
+    if (fd) {
+        fprintf(fd, "======================================================================================\n");
+        fprintf(fd, "There was a push to local stack.\n");
+        int tmp_sem_val = 0;
+        sem_getvalue(sem, &tmp_sem_val);
+        fprintf(fd, "Semaphor value is %d\n", tmp_sem_val);
+        PrintStack(fd, *stack);
+    }
+    fclose(fd);
+}
+void PopStackLog( 
+    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
+) {
+    FILE* fd = NULL;
+    if (id == 0)
+        fd = fopen(thread0_file, "a");
+    else
+        fd = fopen(thread1_file, "a");
+    if (fd) {
+        fprintf(fd, "======================================================================================\n");
+        fprintf(fd, "There was a pop from local stack.\n");
+        int tmp_sem_val = 0;
+        sem_getvalue(sem, &tmp_sem_val);
+        fprintf(fd, "Semaphor value is %d\n", tmp_sem_val);
+        PrintStack(fd, *stack);
+    }
+    fclose(fd);
+}
+// --------------------------------------------------------------------------------------------
 
 std::unordered_map<std::string, double> MakeNode(double A, double B, double fa, double fb, double Sab) {
     std::unordered_map<std::string, double> node;
@@ -39,6 +101,7 @@ double Trapez(double A, double B, double fa, double fb) {
 
 // стуктура аргумента, передаваемого, как параметр для каждого потока
 typedef struct {
+    size_t id; // id потока (надо для отладки)
     pthread_mutex_t* g_mutex; // мьютекс (нужен для обращения к глобальной переменной res)
     volatile double* res; // глобальная (для процессов) переменная, хранящая результат работы программы
 
@@ -118,26 +181,34 @@ void Calculate(
     std::stack<std::unordered_map<std::string, double>>* local_stack, 
     double A, double B, double fa, double fb, double Sab,
     volatile double* local_res, sem_t* global_sem,
-    std::stack<std::unordered_map<std::string, double>>* global_stack, pthread_mutex_t* mutex
+    std::stack<std::unordered_map<std::string, double>>* global_stack, pthread_mutex_t* mutex, size_t id
 ) {
-    double eps = 1e-3; // точность вычисления
+    double eps = 1e-6; // точность вычисления
     double C = (A + B) / 2;
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
     double Scb = Trapez(C, B, fc, fb);
 
-    if (abs(Sac+Scb - Sab) < eps) {
+    printf("Thread [%ld] Sac = %lf, Scb = %lf\n", id, Sac, Scb);
+
+    if (std::abs(Sac+Scb - Sab) < eps) {
+        printf("Thread [%ld] mearge the result with Sac = %lf, Scb = %lf, Sab = %lf\n", id, Sac, Scb, Sab);
         *local_res += Sab;
 
         if (local_stack->size() != 0) {
             // если в локальном стеке есть записи, берем запись с вершины
             std::unordered_map<std::string, double> cur_top = local_stack->top();
             local_stack->pop();
+
+            #ifdef LOG
+            PopStackLog(id, local_stack, global_sem);
+            #endif //LOG
+
             // производим выычисление промежутка
             Calculate(
                 local_stack,   cur_top["A"],  cur_top["B"], 
                 cur_top["fa"], cur_top["fb"], cur_top["Sab"], local_res, global_sem, global_stack,
-                mutex
+                mutex, id
             );
         }
         else {
@@ -162,6 +233,8 @@ void Calculate(
             все стеки пусты и больше нет необработанных диапазонов. Это значит, что программу можно завершать.
             */
             while (sem_value != 0) {
+                sem_getvalue(global_sem, &sem_value);
+                // printf("thread [%ld] curent sem value is %d\n", id, sem_value);
                 // чекаем глобальный стек раз в 3 такта
                 if (counter != 3) {
                     counter++;
@@ -172,28 +245,44 @@ void Calculate(
                 if (global_stack->size() != 0) {
                     // если в глобальном стеке есть записи, то переносим их в локальный стек и начинаем обрабатывать
                     Global2Local(local_stack, global_stack, mutex, global_sem);
+
+                    #ifdef LOG
+                    Push2StackLog(id, local_stack, global_sem);
+                    PopStackLog(69, global_stack, global_sem);
+                    #endif //LOG
+
                     // берем первую запись с локального стека и начинаем ее обрабатывать
                     std::unordered_map<std::string, double> cur_top = local_stack->top();
                     Calculate(
                         local_stack,   cur_top["A"],  cur_top["B"], 
                         cur_top["fa"], cur_top["fb"], cur_top["Sab"], local_res, global_sem, global_stack,
-                        mutex
+                        mutex, id
                     );
                 }
             }
+            return;
         }
     } else {
         // правую часть промежутка кладем в стек
         local_stack->push(MakeNode(C, B, fc, fb, Scb));
 
+        #ifdef LOG
+        Push2StackLog(id, local_stack, global_sem);
+        #endif //LOG
+
         // Случай переполнения локального стека
         if (local_stack->size() > STACK_LIMIT) {
             // переносим часть записей из локального стека в глобальный
             Local2Global(local_stack, global_stack, mutex, global_sem);
+            
+            #ifdef LOG
+            PopStackLog(id, local_stack, global_sem);
+            Push2StackLog(69, global_stack, global_sem);
+            #endif //LOG
         }
 
         // с левой частью продолжаем работать
-        Calculate(local_stack, A, C, fa, fc, Sac, local_res, global_sem, global_stack, mutex);
+        Calculate(local_stack, A, C, fa, fc, Sac, local_res, global_sem, global_stack, mutex, id);
     }
 }
 
@@ -202,7 +291,7 @@ void* ThreadFunction(void* arg) {
     std::stack<std::unordered_map<std::string, double>> local_stack; // локальный стек
     volatile double local_res = 0; // частичная сумма потока
     #ifdef DEBUG
-    printf("thread works on space [%lf, %lf]\n", args->A, args->B);
+    printf("thread [%zd] works on space [%lf, %lf]\n", args->id, args->A, args->B);
     #endif //DEBUG
 
     double fa = f(args->A);
@@ -210,8 +299,10 @@ void* ThreadFunction(void* arg) {
 
     Calculate(
         &local_stack, args->A, args->B, fa, fb, 
-        Trapez(args->A, args->B, fa, fb), &local_res, args->glob_sem, args->glob_stack, args->g_mutex
+        Trapez(args->A, args->B, fa, fb), &local_res, args->glob_sem, args->glob_stack, args->g_mutex, args->id
     );
+
+    printf("thread [%ld] local res is %lf\n", args->id, local_res);
 
     pthread_mutex_lock(args->g_mutex);
     *(args->res) += local_res;
@@ -256,6 +347,7 @@ int main(int argc, char* argv[]) {
     arg_t thread_args[thread_amount];
     // в цикле задаем аргументы каждому процессу
     for (size_t i = 0; i < thread_amount; ++i) {
+        thread_args[i].id = i;
         thread_args[i].g_mutex = &mutex;
         thread_args[i].glob_sem = sem;
         thread_args[i].res = &res;
@@ -279,6 +371,8 @@ int main(int argc, char* argv[]) {
     for (unsigned int i = 0; i < thread_amount; ++i) {
         pthread_join(thread_id[i], NULL);
     }
+
+    std::cout << "total integration result is " << res << std::endl;
 
     // ===========================================================================================
     if (sem_close(sem) == -1) {
