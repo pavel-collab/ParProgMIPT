@@ -10,8 +10,8 @@
 
 #include "lib.hpp"
 
-#define DEBUG
-#define LOG
+// #define DEBUG
+// #define LOG
 
 const char* thread0_file = "thread0.log";
 const char* thread1_file = "thread1.log";
@@ -44,13 +44,13 @@ void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>
 void Push2StackLog(
     size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
 ) {
-    FILE* fd = NULL;
-    if (id == 0)
-        fd = fopen(thread0_file, "a");
-    else if (id == 1)
-        fd = fopen(thread1_file, "a");
-    else if (id == 69) 
-        fd = fopen(global_file, "a");
+    FILE* fd = fopen(global_file, "a");
+    switch (id) {
+        case 0 : fd = fopen(thread0_file, "a");
+        case 1 : fd = fopen(thread1_file, "a");
+
+        default : fd = fopen(global_file, "a");
+    }
     if (fd) {
         fprintf(fd, "======================================================================================\n");
         fprintf(fd, "There was a push to stack.\n");
@@ -65,13 +65,13 @@ void Push2StackLog(
 void PopStackLog( 
     size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
 ) {
-    FILE* fd = NULL;
-        if (id == 0)
-        fd = fopen(thread0_file, "a");
-    else if (id == 1)
-        fd = fopen(thread1_file, "a");
-    else if (id == 69) 
-        fd = fopen(global_file, "a");
+    FILE* fd = fopen(global_file, "a");
+    switch (id) {
+        case 0 : fd = fopen(thread0_file, "a");
+        case 1 : fd = fopen(thread1_file, "a");
+
+        default : fd = fopen(global_file, "a");
+    }
     if (fd) {
         fprintf(fd, "======================================================================================\n");
         fprintf(fd, "There was a pop from stack.\n");
@@ -183,12 +183,14 @@ void Calculate(
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
     double Scb = Trapez(C, B, fc, fb);
+    printf("Thread [%ld]. Entre to Calculate function.\n", id);
 
     if (std::abs(Sac+Scb - Sab) < eps) {
         *local_res += Sab;
         // printf("Thread [%ld] (accept range [%lf, %lf]) Sac = %lf, Scb = %lf, Sab = %lf\n", id, A, B, Sac, Scb, Sab);
 
         if (local_stack->size() != 0) {
+            printf("Thread [%ld]. Local stack access\n", id);
             // если в локальном стеке есть записи, берем запись с вершины
             std::unordered_map<std::string, double> cur_top = local_stack->top();
             local_stack->pop();
@@ -213,6 +215,7 @@ void Calculate(
                 perror("sem_wait");
                 exit(1);
             }
+            printf("Thread [%ld]. Semaphore access\n", id);
             // локальный стек пуст -> начинаем мониторить глобальный стек
             size_t counter = 0;
             int sem_value;
@@ -237,6 +240,7 @@ void Calculate(
 
                 counter = 0;
                 if (global_stack->size() != 0) {
+                    printf("Thread [%ld]. Global stack access\n", id);
                     // если в глобальном стеке есть записи, то переносим их в локальный стек и начинаем обрабатывать
                     Global2Local(local_stack, global_stack, mutex, sem);
                     // printf("Transmit data from global stack to local thread [%ld]\n", id);
@@ -249,6 +253,7 @@ void Calculate(
                     // берем первую запись с локального стека и начинаем ее обрабатывать
                     std::unordered_map<std::string, double> cur_top = local_stack->top();
                     local_stack->pop();
+                    printf("Thread [%ld]. Local stack pop.\n", id);
                     std::unordered_map<std::string, double> nd = MakeNode(
                         cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
                     );
@@ -262,6 +267,7 @@ void Calculate(
     } else {
         // правую часть промежутка кладем в стек
         local_stack->push(MakeNode(C, B, fc, fb, Scb));
+        printf("Thread [%ld]. Local stack push.\n", id);
 
         #ifdef LOG
         Push2StackLog(id, local_stack, sem);
@@ -298,12 +304,20 @@ void* ThreadFunction(void* arg) {
     std::unordered_map<std::string, double> initial_node = MakeNode(
         args->A, args->B, fa, fb, Trapez(args->A, args->B, fa, fb)
     );
+    printf("Thread [%ld]. Thread function. Start to calculate.\n", args->id);
     Calculate(args->id, args->eps, &local_stack, args->glob_stack, initial_node, &local_res, args->glob_sem, args->g_mutex);
 
-    printf("thread [%ld] local res is %lf\n", args->id, local_res);
+    // printf("thread [%ld] local res is %lf\n", args->id, local_res);
 
     pthread_mutex_lock(args->g_mutex);
     *(args->res) += local_res;
     pthread_mutex_unlock(args->g_mutex);
     return NULL;
 }
+
+//! Текущее поведение программы возможно объяснить следующим образом:
+//! за время printf() инициализируются некоторые сущности, 
+//! к которым идет обращение и программа работает корректно.
+
+//TODO: Постараться отследить обращения к возможно неиницелизированным сущностям
+//TODO: вниметальнее посмотреть операции с семафором. Если программа спит, значит скорее всего она ждет, пока отпустят семафор.
