@@ -2,6 +2,7 @@
 #include <cmath>
 #include <stack>
 #include <unordered_map>
+#include <cmath>
 
 // includes for UNIX pthread
 #include <pthread.h>
@@ -14,8 +15,8 @@
 
 #define DEBUG
 #define LOG
-#define STACK_LIMIT 10 // верхняя граница на количество записей в стеке
-#define TRANSMIT_SIZE 6 // столько записей переносим за раз из локального стека в глобальный
+#define STACK_LIMIT 1 // верхняя граница на количество записей в стеке
+#define TRANSMIT_SIZE 1 // столько записей переносим за раз из локального стека в глобальный
 
 // man pthread_create
 //! Линковать с динамической библиотекой -pthread
@@ -26,6 +27,7 @@ const char* global_file  = "global.log";
 
 double f(double x) {
     return x*x;
+    // return cos(20*x);
 }
 
 void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
@@ -53,11 +55,14 @@ void Push2StackLog(
     FILE* fd = NULL;
     if (id == 0)
         fd = fopen(thread0_file, "a");
-    else
+    else if (id == 1)
         fd = fopen(thread1_file, "a");
+    else if (id == 69) 
+        fd = fopen(global_file, "a");
     if (fd) {
         fprintf(fd, "======================================================================================\n");
-        fprintf(fd, "There was a push to local stack.\n");
+        fprintf(fd, "There was a push to stack.\n");
+        fprintf(fd, "Stack size is %ld\n", stack->size());
         int tmp_sem_val = 0;
         sem_getvalue(sem, &tmp_sem_val);
         fprintf(fd, "Semaphor value is %d\n", tmp_sem_val);
@@ -69,13 +74,16 @@ void PopStackLog(
     size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
 ) {
     FILE* fd = NULL;
-    if (id == 0)
+        if (id == 0)
         fd = fopen(thread0_file, "a");
-    else
+    else if (id == 1)
         fd = fopen(thread1_file, "a");
+    else if (id == 69) 
+        fd = fopen(global_file, "a");
     if (fd) {
         fprintf(fd, "======================================================================================\n");
-        fprintf(fd, "There was a pop from local stack.\n");
+        fprintf(fd, "There was a pop from stack.\n");
+        fprintf(fd, "Stack size is %ld\n", stack->size());
         int tmp_sem_val = 0;
         sem_getvalue(sem, &tmp_sem_val);
         fprintf(fd, "Semaphor value is %d\n", tmp_sem_val);
@@ -129,8 +137,9 @@ void Global2Local(
     pthread_mutex_t* mutex, sem_t* sem
 )
 {
-    if (global_stack->size() < STACK_LIMIT) {
-        while(global_stack->size() != 0) {
+    if (global_stack->size() <= STACK_LIMIT) {
+        size_t curent_nodes_amount = global_stack->size();
+        for (size_t i = 0; i < curent_nodes_amount; ++i) {
             pthread_mutex_lock(mutex);
             TransmitOneNode(local_stack, global_stack);
             pthread_mutex_unlock(mutex);
@@ -183,17 +192,15 @@ void Calculate(
     volatile double* local_res, sem_t* global_sem,
     std::stack<std::unordered_map<std::string, double>>* global_stack, pthread_mutex_t* mutex, size_t id
 ) {
-    double eps = 1e-6; // точность вычисления
+    double eps = 1e-1; // точность вычисления
     double C = (A + B) / 2;
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
     double Scb = Trapez(C, B, fc, fb);
 
-    printf("Thread [%ld] Sac = %lf, Scb = %lf\n", id, Sac, Scb);
-
     if (std::abs(Sac+Scb - Sab) < eps) {
-        printf("Thread [%ld] mearge the result with Sac = %lf, Scb = %lf, Sab = %lf\n", id, Sac, Scb, Sab);
         *local_res += Sab;
+        printf("Thread [%ld] (accept range [%lf, %lf]) Sac = %lf, Scb = %lf, Sab = %lf\n", id, A, B, Sac, Scb, Sab);
 
         if (local_stack->size() != 0) {
             // если в локальном стеке есть записи, берем запись с вершины
@@ -214,14 +221,14 @@ void Calculate(
         else {
             /*
             Eсли локальный стек пуст, декрементируем глобальный семафор (индикатор того, что процесс выполнил свою работу) 
-            и начинаем мониторить глобальный стек.
             */
-            int sem_value;
-            size_t counter = 0;
             if (sem_wait(global_sem) == -1) {
                 perror("sem_wait");
                 exit(1);
             }
+            // локальный стек пуст -> начинаем мониторить глобальный стек
+            size_t counter = 0;
+            int sem_value;
             if (sem_getvalue(global_sem, &sem_value) == -1) {
                 perror("sem_getvalue");
                 exit(1);
@@ -245,6 +252,7 @@ void Calculate(
                 if (global_stack->size() != 0) {
                     // если в глобальном стеке есть записи, то переносим их в локальный стек и начинаем обрабатывать
                     Global2Local(local_stack, global_stack, mutex, global_sem);
+                    // printf("Transmit data from global stack to local thread [%ld]\n", id);
 
                     #ifdef LOG
                     Push2StackLog(id, local_stack, global_sem);
@@ -253,6 +261,7 @@ void Calculate(
 
                     // берем первую запись с локального стека и начинаем ее обрабатывать
                     std::unordered_map<std::string, double> cur_top = local_stack->top();
+                    local_stack->pop();
                     Calculate(
                         local_stack,   cur_top["A"],  cur_top["B"], 
                         cur_top["fa"], cur_top["fb"], cur_top["Sab"], local_res, global_sem, global_stack,
@@ -389,3 +398,8 @@ int main(int argc, char* argv[]) {
     }
     // ===========================================================================================
 }
+
+/*
+Не работает поддержка глобального стека. Почему-то семафор не может опуститься до 0 
+и потоки находятся в состоянии вечного ожидания.
+*/
