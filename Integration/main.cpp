@@ -15,19 +15,18 @@
 
 #define DEBUG
 #define LOG
-#define STACK_LIMIT 1 // верхняя граница на количество записей в стеке
-#define TRANSMIT_SIZE 1 // столько записей переносим за раз из локального стека в глобальный
+#define STACK_LIMIT 6 // верхняя граница на количество записей в стеке
+#define TRANSMIT_SIZE 3 // столько записей переносим за раз из локального стека в глобальный
 
-// man pthread_create
-//! Линковать с динамической библиотекой -pthread
+//! семафоры находятся в /dev/shm
 
 const char* thread0_file = "thread0.log";
 const char* thread1_file = "thread1.log";
 const char* global_file  = "global.log";
 
 double f(double x) {
-    return x*x;
-    // return cos(20*x);
+    // return x*x;
+    return cos(20*x);
 }
 
 void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
@@ -192,7 +191,7 @@ void Calculate(
     volatile double* local_res, sem_t* global_sem,
     std::stack<std::unordered_map<std::string, double>>* global_stack, pthread_mutex_t* mutex, size_t id
 ) {
-    double eps = 1e-1; // точность вычисления
+    double eps = 1e-5; // точность вычисления
     double C = (A + B) / 2;
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
@@ -200,7 +199,7 @@ void Calculate(
 
     if (std::abs(Sac+Scb - Sab) < eps) {
         *local_res += Sab;
-        printf("Thread [%ld] (accept range [%lf, %lf]) Sac = %lf, Scb = %lf, Sab = %lf\n", id, A, B, Sac, Scb, Sab);
+        // printf("Thread [%ld] (accept range [%lf, %lf]) Sac = %lf, Scb = %lf, Sab = %lf\n", id, A, B, Sac, Scb, Sab);
 
         if (local_stack->size() != 0) {
             // если в локальном стеке есть записи, берем запись с вершины
@@ -400,6 +399,7 @@ int main(int argc, char* argv[]) {
 }
 
 /*
-Не работает поддержка глобального стека. Почему-то семафор не может опуститься до 0 
-и потоки находятся в состоянии вечного ожидания.
+Программа не работает на точности лучше, чем 1e-5 (1e-6) уже валится в бесконечный цикл.
+Без дефайна LOG, программа почему-то начинает работать некорректно, 
+то валится в бесконечный цикл, то ловит ошибку сигментирования.
 */
