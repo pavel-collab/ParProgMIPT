@@ -1,4 +1,4 @@
 all:
-	g++ main.cpp -lpthread
+	g++ main.cpp lib.cpp -lpthread
 clear:
 	rm a.out
