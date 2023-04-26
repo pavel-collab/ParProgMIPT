@@ -22,6 +22,7 @@ double f(double x) {
     return cos(20*x);
 }
 
+// --------------------------------------------------------------------------------------------
 void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
     fprintf(stream, "Stack top\n");
     fprintf(stream, "\tA   = %lf\n", stack.top()["A"]  );
@@ -40,7 +41,6 @@ void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>
     }
 }
 
-// --------------------------------------------------------------------------------------------
 void Push2StackLog(
     size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
 ) {
@@ -168,12 +168,17 @@ void Local2Global(
 }
 
 void Calculate(
+    size_t id, double eps,
     std::stack<std::unordered_map<std::string, double>>* local_stack, 
-    double A, double B, double fa, double fb, double Sab,
-    volatile double* local_res, sem_t* global_sem,
-    std::stack<std::unordered_map<std::string, double>>* global_stack, pthread_mutex_t* mutex, size_t id
+    std::stack<std::unordered_map<std::string, double>>* global_stack,
+    std::unordered_map<std::string, double> node,
+    volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex
 ) {
-    double eps = 1e-5; // точность вычисления
+    double A   = node["A"];
+    double B   = node["B"];
+    double Sab = node["Sab"];
+    double fa  = node["fa"];
+    double fb  = node["fb"];
     double C = (A + B) / 2;
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
@@ -189,28 +194,29 @@ void Calculate(
             local_stack->pop();
 
             #ifdef LOG
-            PopStackLog(id, local_stack, global_sem);
+            PopStackLog(id, local_stack, sem);
             #endif //LOG
 
             // производим выычисление промежутка
+            std::unordered_map<std::string, double> nd = MakeNode(
+                cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
+            );
             Calculate(
-                local_stack,   cur_top["A"],  cur_top["B"], 
-                cur_top["fa"], cur_top["fb"], cur_top["Sab"], local_res, global_sem, global_stack,
-                mutex, id
+                id, eps, local_stack, global_stack, nd, local_res, sem, mutex 
             );
         }
         else {
             /*
             Eсли локальный стек пуст, декрементируем глобальный семафор (индикатор того, что процесс выполнил свою работу) 
             */
-            if (sem_wait(global_sem) == -1) {
+            if (sem_wait(sem) == -1) {
                 perror("sem_wait");
                 exit(1);
             }
             // локальный стек пуст -> начинаем мониторить глобальный стек
             size_t counter = 0;
             int sem_value;
-            if (sem_getvalue(global_sem, &sem_value) == -1) {
+            if (sem_getvalue(sem, &sem_value) == -1) {
                 perror("sem_getvalue");
                 exit(1);
             }
@@ -221,7 +227,7 @@ void Calculate(
             все стеки пусты и больше нет необработанных диапазонов. Это значит, что программу можно завершать.
             */
             while (sem_value != 0) {
-                sem_getvalue(global_sem, &sem_value);
+                sem_getvalue(sem, &sem_value);
                 // printf("thread [%ld] curent sem value is %d\n", id, sem_value);
                 // чекаем глобальный стек раз в 3 такта
                 if (counter != 3) {
@@ -232,21 +238,22 @@ void Calculate(
                 counter = 0;
                 if (global_stack->size() != 0) {
                     // если в глобальном стеке есть записи, то переносим их в локальный стек и начинаем обрабатывать
-                    Global2Local(local_stack, global_stack, mutex, global_sem);
+                    Global2Local(local_stack, global_stack, mutex, sem);
                     // printf("Transmit data from global stack to local thread [%ld]\n", id);
 
                     #ifdef LOG
-                    Push2StackLog(id, local_stack, global_sem);
-                    PopStackLog(69, global_stack, global_sem);
+                    Push2StackLog(id, local_stack, sem);
+                    PopStackLog(69, global_stack, sem);
                     #endif //LOG
 
                     // берем первую запись с локального стека и начинаем ее обрабатывать
                     std::unordered_map<std::string, double> cur_top = local_stack->top();
                     local_stack->pop();
+                    std::unordered_map<std::string, double> nd = MakeNode(
+                        cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
+                    );
                     Calculate(
-                        local_stack,   cur_top["A"],  cur_top["B"], 
-                        cur_top["fa"], cur_top["fb"], cur_top["Sab"], local_res, global_sem, global_stack,
-                        mutex, id
+                        id, eps, local_stack, global_stack, nd, local_res, sem, mutex 
                     );
                 }
             }
@@ -257,22 +264,23 @@ void Calculate(
         local_stack->push(MakeNode(C, B, fc, fb, Scb));
 
         #ifdef LOG
-        Push2StackLog(id, local_stack, global_sem);
+        Push2StackLog(id, local_stack, sem);
         #endif //LOG
 
         // Случай переполнения локального стека
         if (local_stack->size() > STACK_LIMIT) {
             // переносим часть записей из локального стека в глобальный
-            Local2Global(local_stack, global_stack, mutex, global_sem);
+            Local2Global(local_stack, global_stack, mutex, sem);
             
             #ifdef LOG
-            PopStackLog(id, local_stack, global_sem);
-            Push2StackLog(69, global_stack, global_sem);
+            PopStackLog(id, local_stack, sem);
+            Push2StackLog(69, global_stack, sem);
             #endif //LOG
         }
 
         // с левой частью продолжаем работать
-        Calculate(local_stack, A, C, fa, fc, Sac, local_res, global_sem, global_stack, mutex, id);
+        std::unordered_map<std::string, double> nd = MakeNode(A, C, fa, fc, Sac);
+        Calculate(id, eps, local_stack, global_stack, nd, local_res, sem, mutex);
     }
 }
 
@@ -287,10 +295,10 @@ void* ThreadFunction(void* arg) {
     double fa = f(args->A);
     double fb = f(args->B);
 
-    Calculate(
-        &local_stack, args->A, args->B, fa, fb, 
-        Trapez(args->A, args->B, fa, fb), &local_res, args->glob_sem, args->glob_stack, args->g_mutex, args->id
+    std::unordered_map<std::string, double> initial_node = MakeNode(
+        args->A, args->B, fa, fb, Trapez(args->A, args->B, fa, fb)
     );
+    Calculate(args->id, args->eps, &local_stack, args->glob_stack, initial_node, &local_res, args->glob_sem, args->g_mutex);
 
     printf("thread [%ld] local res is %lf\n", args->id, local_res);
 

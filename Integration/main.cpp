@@ -18,7 +18,7 @@
 //! семафоры находятся в /dev/shm
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         fprintf(stderr, "[-] Usage %s n_of_threads\n", argv[0]);
         return -1;
     }
@@ -29,6 +29,9 @@ int main(int argc, char* argv[]) {
 
     // количество потоков
     unsigned int thread_amount = atoi(argv[1]);
+    double eps = 1e-3; // точность вычисления интеграла
+    if (argc == 3) 
+        eps = atof(argv[2]);
 
     const char* glob_sem_name = "glob_sem";
     /*
@@ -54,6 +57,7 @@ int main(int argc, char* argv[]) {
     arg_t thread_args[thread_amount];
     // в цикле задаем аргументы каждому процессу
     for (size_t i = 0; i < thread_amount; ++i) {
+        thread_args[i].eps = eps;
         thread_args[i].id = i;
         thread_args[i].g_mutex = &mutex;
         thread_args[i].glob_sem = sem;
@@ -96,9 +100,3 @@ int main(int argc, char* argv[]) {
     }
     // ===========================================================================================
 }
-
-/*
-Программа не работает на точности лучше, чем 1e-5 (1e-6) уже валится в бесконечный цикл.
-Без дефайна LOG, программа почему-то начинает работать некорректно, 
-то валится в бесконечный цикл, то ловит ошибку сигментирования.
-*/

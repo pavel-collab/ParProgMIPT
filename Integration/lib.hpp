@@ -9,16 +9,17 @@
 #include <sys/stat.h>
 #include <semaphore.h>
 
-#define STACK_LIMIT 6 // верхняя граница на количество записей в стеке
+#define STACK_LIMIT 6   // верхняя граница на количество записей в стеке
 #define TRANSMIT_SIZE 3 // столько записей переносим за раз из локального стека в глобальный
 
 // стуктура аргумента, передаваемого, как параметр для каждого потока
 typedef struct {
-    size_t id; // id потока (надо для отладки)
+    double eps;               // точность вычисления интеграла
+    size_t id;                // id потока (надо для отладки)
     pthread_mutex_t* g_mutex; // мьютекс (нужен для обращения к глобальной переменной res)
-    volatile double* res; // глобальная (для процессов) переменная, хранящая результат работы программы
+    volatile double* res;     // глобальная (для процессов) переменная, хранящая результат работы программы
 
-    sem_t* glob_sem; // семафор (нужен для отслживания окончания работы программы)
+    sem_t* glob_sem;          // семафор (нужен для отслживания окончания работы программы)
     std::stack<std::unordered_map<std::string, double>>* glob_stack; // указатель на глобальный стек (нужен для делигирования работы на другие проессы в случае необходимости)
 
     double A; // начало участка, обрабатываемого процессом
@@ -63,10 +64,11 @@ void Local2Global(
 );
 
 void Calculate(
+    size_t id, double eps,
     std::stack<std::unordered_map<std::string, double>>* local_stack, 
-    double A, double B, double fa, double fb, double Sab,
-    volatile double* local_res, sem_t* global_sem,
-    std::stack<std::unordered_map<std::string, double>>* global_stack, pthread_mutex_t* mutex, size_t id
+    std::stack<std::unordered_map<std::string, double>>* global_stack,
+    std::unordered_map<std::string, double> node,
+    volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex
 );
 
 void* ThreadFunction(void* arg);
