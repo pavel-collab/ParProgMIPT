@@ -13,7 +13,8 @@
 // стуктура аргумента, передаваемого, как параметр для каждого потока
 typedef struct {
     size_t id;                // id потока (надо для отладки)
-    sem_t *g_sem;    
+    sem_t *g_sem;
+    int* g_var;    
 } arg_t;
 
 void* ThreadFunction(void* arg) {
@@ -32,7 +33,8 @@ void* ThreadFunction(void* arg) {
         }
     }
 
-    printf("Thread [%ld] global var value is %d\n", rank, sem_value);
+    printf("Thread [%ld] semaphor value is %d, global value is %d\n", rank, sem_value, *(args->g_var));
+    *(args->g_var)+=1;
     if (sem_post(args->g_sem) == -1) {
         perror("sem_post");
         exit(1);
@@ -46,6 +48,7 @@ int main(int argc, char* argv[]) {
     }
     // количество потоков
     unsigned int thread_amount = atoi(argv[1]);
+    int global_var = 0;
 
     pthread_t thread_id[thread_amount]; 
     const char* glob_sem_name = "glob_sem";
@@ -63,6 +66,7 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < thread_amount; ++i) {
         thread_args[i].id = i;
         thread_args[i].g_sem = sem;
+        thread_args[i].g_var = &global_var;
     }
 
     for (unsigned int i = 0; i < thread_amount; ++i) {
