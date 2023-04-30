@@ -15,8 +15,6 @@
 
 #include "lib.hpp"
 
-//! семафоры находятся в /dev/shm
-
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         fprintf(stderr, "[-] Usage %s n_of_threads\n", argv[0]);

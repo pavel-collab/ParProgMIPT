@@ -18,7 +18,7 @@ def ImportDataTimeFileContent(file_name: str) -> list:
 def main():
     N_list = np.array([
         10000, 50000, 100000, 500000, 1000000,
-        5000000, 10000000, 50000000, 100000000  
+        5000000, 10000000, 50000000
     ])
 
     for N in N_list:
