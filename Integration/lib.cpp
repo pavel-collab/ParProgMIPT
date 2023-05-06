@@ -20,6 +20,7 @@ const char* global_file  = "global.log";
 double f(double x) {
     // return x*x;
     return cos(20*x);
+    // return cos(1/x);
 }
 
 // --------------------------------------------------------------------------------------------
@@ -107,6 +108,10 @@ void TransmitOneNode(
     std::stack<std::unordered_map<std::string, double>>* src_stack
 )
 {
+    if (src_stack->empty()) {
+        std::cout << "[ERROR] src stack is empty" << std::endl;
+        return;
+    }
     std::unordered_map<std::string, double> node = src_stack->top();
     src_stack->pop();
     dst_stack->push(node);
@@ -120,22 +125,22 @@ void Global2Local(
 {
     if (global_stack->size() <= STACK_LIMIT) {
         size_t curent_nodes_amount = global_stack->size();
+        pthread_mutex_lock(mutex);
         for (size_t i = 0; i < curent_nodes_amount; ++i) {
-            pthread_mutex_lock(mutex);
             TransmitOneNode(local_stack, global_stack);
-            pthread_mutex_unlock(mutex);
         }
+        pthread_mutex_unlock(mutex);
         /*
         В этом случае нам не надо менять семафор, так как мы очистили глобальный стек и 
         заполнили локальный
         */
     }
     else {
+        pthread_mutex_lock(mutex);
         for (size_t i = 0; i < STACK_LIMIT; ++i) {
-            pthread_mutex_lock(mutex);
             TransmitOneNode(local_stack, global_stack);
-            pthread_mutex_unlock(mutex);
         }
+        pthread_mutex_unlock(mutex);
         /*
         В этом случае нам надо инкрементировать семафор, так как мы заполнили локальный стек,
         при этом в глобальном стеке у нас все еще что-то есть.
@@ -153,11 +158,11 @@ void Local2Global(
     pthread_mutex_t* mutex, sem_t* sem
 )
 {
+    pthread_mutex_lock(mutex);
     for (size_t i = 0; i < TRANSMIT_SIZE; ++i) {
-        pthread_mutex_lock(mutex);
         TransmitOneNode(global_stack, local_stack);
-        pthread_mutex_unlock(mutex);
     }
+    pthread_mutex_unlock(mutex);
     if (global_stack->size() - TRANSMIT_SIZE == 0) {
         // если глобальный стек был пуст, то надо инкрементировать семафор
         if (sem_post(sem) == -1) {
@@ -183,14 +188,14 @@ void Calculate(
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
     double Scb = Trapez(C, B, fc, fb);
-    printf("Thread [%ld]. Entre to Calculate function.\n", id);
+    // printf("Thread [%ld]. Entre to Calculate function.\n", id);
 
-    if (std::abs(Sac+Scb - Sab) < eps) {
+    if (std::abs((Sac+Scb) - Sab) < eps) {
         *local_res += Sab;
         // printf("Thread [%ld] (accept range [%lf, %lf]) Sac = %lf, Scb = %lf, Sab = %lf\n", id, A, B, Sac, Scb, Sab);
 
         if (local_stack->size() != 0) {
-            printf("Thread [%ld]. Local stack access\n", id);
+            // printf("Thread [%ld]. Local stack access\n", id);
             // если в локальном стеке есть записи, берем запись с вершины
             std::unordered_map<std::string, double> cur_top = local_stack->top();
             local_stack->pop();
@@ -215,7 +220,7 @@ void Calculate(
                 perror("sem_wait");
                 exit(1);
             }
-            printf("Thread [%ld]. Semaphore access\n", id);
+            // printf("Thread [%ld]. Semaphore access\n", id);
             // локальный стек пуст -> начинаем мониторить глобальный стек
             size_t counter = 0;
             int sem_value;
@@ -240,7 +245,7 @@ void Calculate(
 
                 counter = 0;
                 if (global_stack->size() != 0) {
-                    printf("Thread [%ld]. Global stack access\n", id);
+                    // printf("Thread [%ld]. Global stack access\n", id);
                     // если в глобальном стеке есть записи, то переносим их в локальный стек и начинаем обрабатывать
                     Global2Local(local_stack, global_stack, mutex, sem);
                     // printf("Transmit data from global stack to local thread [%ld]\n", id);
@@ -253,7 +258,7 @@ void Calculate(
                     // берем первую запись с локального стека и начинаем ее обрабатывать
                     std::unordered_map<std::string, double> cur_top = local_stack->top();
                     local_stack->pop();
-                    printf("Thread [%ld]. Local stack pop.\n", id);
+                    // printf("Thread [%ld]. Local stack pop.\n", id);
                     std::unordered_map<std::string, double> nd = MakeNode(
                         cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
                     );
@@ -267,7 +272,7 @@ void Calculate(
     } else {
         // правую часть промежутка кладем в стек
         local_stack->push(MakeNode(C, B, fc, fb, Scb));
-        printf("Thread [%ld]. Local stack push.\n", id);
+        // printf("Thread [%ld]. Local stack push.\n", id);
 
         #ifdef LOG
         Push2StackLog(id, local_stack, sem);
@@ -304,7 +309,7 @@ void* ThreadFunction(void* arg) {
     std::unordered_map<std::string, double> initial_node = MakeNode(
         args->A, args->B, fa, fb, Trapez(args->A, args->B, fa, fb)
     );
-    printf("Thread [%ld]. Thread function. Start to calculate.\n", args->id);
+    // printf("Thread [%ld]. Thread function. Start to calculate.\n", args->id);
     Calculate(args->id, args->eps, &local_stack, args->glob_stack, initial_node, &local_res, args->glob_sem, args->g_mutex);
 
     // printf("thread [%ld] local res is %lf\n", args->id, local_res);
