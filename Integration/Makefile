@@ -3,4 +3,4 @@ all:
 debug:
 	g++ main.cpp lib.cpp -lpthread -g
 clear:
-	rm a.out
+	rm a.out *.txt

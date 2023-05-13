@@ -9,8 +9,12 @@
 #include <sys/stat.h>
 #include <semaphore.h>
 
-#define STACK_LIMIT 150   // верхняя граница на количество записей в стеке
-#define TRANSMIT_SIZE 120 // столько записей переносим за раз из локального стека в глобальный
+/*
+От значения данных полей зависит частота обмена данными между глобальным
+и локальным стеком. Так же, как следствие время работы программы.
+*/
+#define STACK_LIMIT 4   // верхняя граница на количество записей в стеке
+#define TRANSMIT_SIZE 3 // столько записей переносим за раз из локального стека в глобальный
 
 // стуктура аргумента, передаваемого, как параметр для каждого потока
 typedef struct {
@@ -42,13 +46,13 @@ void TransmitOneNode(
 void Global2Local(
     std::stack<std::unordered_map<std::string, double>>* local_stack,
     std::stack<std::unordered_map<std::string, double>>* global_stack,
-    pthread_mutex_t* mutex, sem_t* sem
+    sem_t* sem
 );
 
 void Local2Global(
     std::stack<std::unordered_map<std::string, double>>* local_stack,
     std::stack<std::unordered_map<std::string, double>>* global_stack,
-    pthread_mutex_t* mutex, sem_t* sem
+    sem_t* sem
 );
 
 void Calculate(

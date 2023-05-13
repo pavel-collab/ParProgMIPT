@@ -3,6 +3,7 @@
 #include <stack>
 #include <unordered_map>
 #include <cmath>
+#include <chrono>
 
 // includes for UNIX pthread
 #include <pthread.h>
@@ -23,8 +24,6 @@ int main(int argc, char* argv[]) {
 
     // начало и конец участка интегрирования
     double A = 0.005;
-    // double A = 1;
-    // double B = 0.5;
     double B = 5;
 
     // количество потоков
@@ -49,6 +48,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // переменную, хранящую результат делаем volatile
+    // в противном случае, в процессе оптимизации компилятор может вытащить ее из-под мьютексов
     volatile double res = 0; // глобальная (для процессов) переменная, хранящая результат работы программы
     std::stack<std::unordered_map<std::string, double>> global_stack;
 
@@ -71,6 +72,7 @@ int main(int argc, char* argv[]) {
 
     pthread_t thread_id[thread_amount]; 
 
+    auto t_start = std::chrono::high_resolution_clock::now();
     for (unsigned int i = 0; i < thread_amount; ++i) {
         if (errno = pthread_create(&thread_id[i], NULL, ThreadFunction, &thread_args[i])) {
             perror("pthread_create");
@@ -82,10 +84,16 @@ int main(int argc, char* argv[]) {
     for (unsigned int i = 0; i < thread_amount; ++i) {
         pthread_join(thread_id[i], NULL);
     }
-
+    auto t_end = std::chrono::high_resolution_clock::now();
+    
+    std::cout << "exec time is " << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
     std::cout << "total integration result is " << res << std::endl;
 
-    // ===========================================================================================
+    const char* file_name = "time.txt";
+    FILE* fd = fopen(file_name, "a");
+    fprintf(fd, "%lf ", std::chrono::duration<double, std::milli>(t_end-t_start).count());
+    fclose(fd);
+
     if (sem_close(sem) == -1) {
         perror("sem_close");
         return -1;
@@ -98,5 +106,4 @@ int main(int argc, char* argv[]) {
         perror("sem_unlink");
         return -1;
     }
-    // ===========================================================================================
 }
