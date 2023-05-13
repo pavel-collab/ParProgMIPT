@@ -23,6 +23,8 @@ int main(int argc, char* argv[]) {
 
     // начало и конец участка интегрирования
     double A = 0.005;
+    // double A = 1;
+    // double B = 0.5;
     double B = 5;
 
     // количество потоков
@@ -63,8 +65,8 @@ int main(int argc, char* argv[]) {
 
         thread_args[i].glob_stack = &global_stack;
 
-        thread_args[i].A = (B - A)*i / thread_amount;
-        thread_args[i].B = (B - A)*(i+1) / thread_amount;
+        thread_args[i].A = A + (B - A)*i / thread_amount;
+        thread_args[i].B = A + (B - A)*(i+1) / thread_amount;
     }
 
     pthread_t thread_id[thread_amount]; 
