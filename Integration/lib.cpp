@@ -11,80 +11,12 @@
 #include "lib.hpp"
 
 // #define DEBUG
-// #define LOG
-
-const char* thread0_file = "thread0.log";
-const char* thread1_file = "thread1.log";
-const char* global_file  = "global.log";
 
 double f(double x) {
-    // return x*x;
+    return x*x;
     return cos(20*x);
-    // return cos(1/x);
+    return cos(1/x);
 }
-
-// --------------------------------------------------------------------------------------------
-void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
-    fprintf(stream, "Stack top\n");
-    fprintf(stream, "\tA   = %lf\n", stack.top()["A"]  );
-    fprintf(stream, "\tB   = %lf\n", stack.top()["B"]  );
-    fprintf(stream, "\tfa  = %lf\n", stack.top()["fa"] );
-    fprintf(stream, "\tfb  = %lf\n", stack.top()["fb"] );
-    fprintf(stream, "\tSab = %lf\n", stack.top()["Sab"]);
-}
-
-void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
-    //копируем в локальную переменную, чтобы не портить стек
-    std::stack<std::unordered_map<std::string, double>> copy_stack = stack;
-    while(copy_stack.size() != 0) {
-        PrintStackTop(stream, copy_stack);
-        copy_stack.pop();
-    }
-}
-
-void Push2StackLog(
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
-) {
-    FILE* fd = fopen(global_file, "a");
-    switch (id) {
-        case 0 : fd = fopen(thread0_file, "a");
-        case 1 : fd = fopen(thread1_file, "a");
-
-        default : fd = fopen(global_file, "a");
-    }
-    if (fd) {
-        fprintf(fd, "======================================================================================\n");
-        fprintf(fd, "There was a push to stack.\n");
-        fprintf(fd, "Stack size is %ld\n", stack->size());
-        int tmp_sem_val = 0;
-        sem_getvalue(sem, &tmp_sem_val);
-        fprintf(fd, "Semaphor value is %d\n", tmp_sem_val);
-        PrintStack(fd, *stack);
-    }
-    fclose(fd);
-}
-void PopStackLog( 
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
-) {
-    FILE* fd = fopen(global_file, "a");
-    switch (id) {
-        case 0 : fd = fopen(thread0_file, "a");
-        case 1 : fd = fopen(thread1_file, "a");
-
-        default : fd = fopen(global_file, "a");
-    }
-    if (fd) {
-        fprintf(fd, "======================================================================================\n");
-        fprintf(fd, "There was a pop from stack.\n");
-        fprintf(fd, "Stack size is %ld\n", stack->size());
-        int tmp_sem_val = 0;
-        sem_getvalue(sem, &tmp_sem_val);
-        fprintf(fd, "Semaphor value is %d\n", tmp_sem_val);
-        PrintStack(fd, *stack);
-    }
-    fclose(fd);
-}
-// --------------------------------------------------------------------------------------------
 
 double Trapez(double A, double B, double fa, double fb) {
     return (fa + fb)*(B - A) / 2;
@@ -200,10 +132,6 @@ void Calculate(
             std::unordered_map<std::string, double> cur_top = local_stack->top();
             local_stack->pop();
 
-            #ifdef LOG
-            PopStackLog(id, local_stack, sem);
-            #endif //LOG
-
             // производим выычисление промежутка
             std::unordered_map<std::string, double> nd = MakeNode(
                 cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
@@ -250,11 +178,6 @@ void Calculate(
                     Global2Local(local_stack, global_stack, mutex, sem);
                     // printf("Transmit data from global stack to local thread [%ld]\n", id);
 
-                    #ifdef LOG
-                    Push2StackLog(id, local_stack, sem);
-                    PopStackLog(69, global_stack, sem);
-                    #endif //LOG
-
                     // берем первую запись с локального стека и начинаем ее обрабатывать
                     std::unordered_map<std::string, double> cur_top = local_stack->top();
                     local_stack->pop();
@@ -274,19 +197,10 @@ void Calculate(
         local_stack->push(MakeNode(C, B, fc, fb, Scb));
         // printf("Thread [%ld]. Local stack push.\n", id);
 
-        #ifdef LOG
-        Push2StackLog(id, local_stack, sem);
-        #endif //LOG
-
         // Случай переполнения локального стека
         if (local_stack->size() > STACK_LIMIT) {
             // переносим часть записей из локального стека в глобальный
             Local2Global(local_stack, global_stack, mutex, sem);
-            
-            #ifdef LOG
-            PopStackLog(id, local_stack, sem);
-            Push2StackLog(69, global_stack, sem);
-            #endif //LOG
         }
 
         // с левой частью продолжаем работать

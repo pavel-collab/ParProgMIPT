@@ -28,18 +28,6 @@ typedef struct {
 
 double f(double x);
 
-void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack);
-
-void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack);
-
-void Push2StackLog(
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
-);
-
-void PopStackLog( 
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
-);
-
 double Trapez(double A, double B, double fa, double fb);
 
 std::unordered_map<std::string, double> MakeNode(

@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     }
 
     // начало и конец участка интегрирования
-    double A = 0;
+    double A = 0.005;
     double B = 5;
 
     // количество потоков
