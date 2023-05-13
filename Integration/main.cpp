@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     }
 
     volatile double res = 0; // глобальная (для процессов) переменная, хранящая результат работы программы
-    std::stack<std::unordered_map<std::string, double>> global_stack;
+    std::stack<Node> global_stack;
 
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex init
 

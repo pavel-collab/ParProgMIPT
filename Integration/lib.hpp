@@ -9,8 +9,16 @@
 #include <sys/stat.h>
 #include <semaphore.h>
 
-#define STACK_LIMIT 10   // верхняя граница на количество записей в стеке
-#define TRANSMIT_SIZE 5 // столько записей переносим за раз из локального стека в глобальный
+#define STACK_LIMIT 6   // верхняя граница на количество записей в стеке
+#define TRANSMIT_SIZE 2 // столько записей переносим за раз из локального стека в глобальный
+
+typedef struct {
+    double A;
+    double B; 
+    double fa;
+    double fb;
+    double Sab;    
+} Node;
 
 // стуктура аргумента, передаваемого, как параметр для каждого потока
 typedef struct {
@@ -20,7 +28,7 @@ typedef struct {
     volatile double* res;     // глобальная (для процессов) переменная, хранящая результат работы программы
 
     sem_t* glob_sem;          // семафор (нужен для отслживания окончания работы программы)
-    std::stack<std::unordered_map<std::string, double>>* glob_stack; // указатель на глобальный стек (нужен для делигирования работы на другие проессы в случае необходимости)
+    std::stack<Node>* glob_stack; // указатель на глобальный стек (нужен для делигирования работы на другие проессы в случае необходимости)
 
     double A; // начало участка, обрабатываемого процессом
     double B; // конец участка, обрабатываемого процессом
@@ -28,46 +36,46 @@ typedef struct {
 
 double f(double x);
 
-void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack);
+void PrintStackTop(FILE* stream, std::stack<Node>& stack);
 
-void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack);
+void PrintStack(FILE* stream, std::stack<Node>& stack);
 
 void Push2StackLog(
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
+    size_t id, std::stack<Node>* stack, sem_t* sem
 );
 
 void PopStackLog( 
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
+    size_t id, std::stack<Node>* stack, sem_t* sem
 );
 
 double Trapez(double A, double B, double fa, double fb);
 
-std::unordered_map<std::string, double> MakeNode(
-    double A, double B, double fa, double fb, double Sab
-);
+// std::unordered_map<std::string, double> MakeNode(
+//     double A, double B, double fa, double fb, double Sab
+// );
 
 void TransmitOneNode(
-    std::stack<std::unordered_map<std::string, double>>* dst_stack,
-    std::stack<std::unordered_map<std::string, double>>* src_stack
+    std::stack<Node>* dst_stack,
+    std::stack<Node>* src_stack
 );
 
 void Global2Local(
-    std::stack<std::unordered_map<std::string, double>>* local_stack,
-    std::stack<std::unordered_map<std::string, double>>* global_stack,
+    std::stack<Node>* local_stack,
+    std::stack<Node>* global_stack,
     pthread_mutex_t* mutex, sem_t* sem
 );
 
 void Local2Global(
-    std::stack<std::unordered_map<std::string, double>>* local_stack,
-    std::stack<std::unordered_map<std::string, double>>* global_stack,
+    std::stack<Node>* local_stack,
+    std::stack<Node>* global_stack,
     pthread_mutex_t* mutex, sem_t* sem
 );
 
 void Calculate(
     size_t id, double eps,
-    std::stack<std::unordered_map<std::string, double>>* local_stack, 
-    std::stack<std::unordered_map<std::string, double>>* global_stack,
-    std::unordered_map<std::string, double> node,
+    std::stack<Node>* local_stack, 
+    std::stack<Node>* global_stack,
+    Node node,
     volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex
 );
 

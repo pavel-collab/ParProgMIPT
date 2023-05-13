@@ -24,18 +24,18 @@ double f(double x) {
 }
 
 // --------------------------------------------------------------------------------------------
-void PrintStackTop(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
+void PrintStackTop(FILE* stream, std::stack<Node>& stack) {
     fprintf(stream, "Stack top\n");
-    fprintf(stream, "\tA   = %lf\n", stack.top()["A"]  );
-    fprintf(stream, "\tB   = %lf\n", stack.top()["B"]  );
-    fprintf(stream, "\tfa  = %lf\n", stack.top()["fa"] );
-    fprintf(stream, "\tfb  = %lf\n", stack.top()["fb"] );
-    fprintf(stream, "\tSab = %lf\n", stack.top()["Sab"]);
+    fprintf(stream, "\tA   = %lf\n", stack.top().A  );
+    fprintf(stream, "\tB   = %lf\n", stack.top().B  );
+    fprintf(stream, "\tfa  = %lf\n", stack.top().fa );
+    fprintf(stream, "\tfb  = %lf\n", stack.top().fb );
+    fprintf(stream, "\tSab = %lf\n", stack.top().Sab);
 }
 
-void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>>& stack) {
+void PrintStack(FILE* stream, std::stack<Node>& stack) {
     //копируем в локальную переменную, чтобы не портить стек
-    std::stack<std::unordered_map<std::string, double>> copy_stack = stack;
+    std::stack<Node> copy_stack = stack;
     while(copy_stack.size() != 0) {
         PrintStackTop(stream, copy_stack);
         copy_stack.pop();
@@ -43,7 +43,7 @@ void PrintStack(FILE* stream, std::stack<std::unordered_map<std::string, double>
 }
 
 void Push2StackLog(
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
+    size_t id, std::stack<Node>* stack, sem_t* sem
 ) {
     FILE* fd = fopen(global_file, "a");
     switch (id) {
@@ -64,7 +64,7 @@ void Push2StackLog(
     fclose(fd);
 }
 void PopStackLog( 
-    size_t id, std::stack<std::unordered_map<std::string, double>>* stack, sem_t* sem
+    size_t id, std::stack<Node>* stack, sem_t* sem
 ) {
     FILE* fd = fopen(global_file, "a");
     switch (id) {
@@ -86,40 +86,52 @@ void PopStackLog(
 }
 // --------------------------------------------------------------------------------------------
 
+Node MakeNode(
+    double A, double B, double fa, double fb, double Sab
+) {
+    Node node;
+    node.A = A;
+    node.B = B;
+    node.fa = fa;
+    node.fb = fb;
+    node.Sab = Sab;
+    return node;
+}
+
 double Trapez(double A, double B, double fa, double fb) {
     return (fa + fb)*(B - A) / 2;
 }
 
-std::unordered_map<std::string, double> MakeNode(
-    double A, double B, double fa, double fb, double Sab
-) {
-    std::unordered_map<std::string, double> node;
-    node.insert({"A", A});
-    node.insert({"B", B});
-    node.insert({"fa", fa});
-    node.insert({"fb", fb});
-    node.insert({"Sab", Sab});
-    return node;
-}
+// std::unordered_map<std::string, double> MakeNode(
+//     double A, double B, double fa, double fb, double Sab
+// ) {
+//     std::unordered_map<std::string, double> node;
+//     node.insert({"A", A});
+//     node.insert({"B", B});
+//     node.insert({"fa", fa});
+//     node.insert({"fb", fb});
+//     node.insert({"Sab", Sab});
+//     return node;
+// }
 
 // Функция перемещает ОДНУ запись из одного стека в другой
 void TransmitOneNode(
-    std::stack<std::unordered_map<std::string, double>>* dst_stack,
-    std::stack<std::unordered_map<std::string, double>>* src_stack
+    std::stack<Node>* dst_stack,
+    std::stack<Node>* src_stack
 )
 {
     if (src_stack->empty()) {
         std::cout << "[ERROR] src stack is empty" << std::endl;
         return;
     }
-    std::unordered_map<std::string, double> node = src_stack->top();
+    Node node = src_stack->top();
     src_stack->pop();
     dst_stack->push(node);
 }
 
 void Global2Local(
-    std::stack<std::unordered_map<std::string, double>>* local_stack,
-    std::stack<std::unordered_map<std::string, double>>* global_stack,
+    std::stack<Node>* local_stack,
+    std::stack<Node>* global_stack,
     pthread_mutex_t* mutex, sem_t* sem
 )
 {
@@ -153,8 +165,8 @@ void Global2Local(
 }
 
 void Local2Global(
-    std::stack<std::unordered_map<std::string, double>>* local_stack,
-    std::stack<std::unordered_map<std::string, double>>* global_stack,
+    std::stack<Node>* local_stack,
+    std::stack<Node>* global_stack,
     pthread_mutex_t* mutex, sem_t* sem
 )
 {
@@ -174,16 +186,16 @@ void Local2Global(
 
 void Calculate(
     size_t id, double eps,
-    std::stack<std::unordered_map<std::string, double>>* local_stack, 
-    std::stack<std::unordered_map<std::string, double>>* global_stack,
-    std::unordered_map<std::string, double> node,
+    std::stack<Node>* local_stack, 
+    std::stack<Node>* global_stack,
+    Node node,
     volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex
 ) {
-    double A   = node["A"];
-    double B   = node["B"];
-    double Sab = node["Sab"];
-    double fa  = node["fa"];
-    double fb  = node["fb"];
+    double A   = node.A;
+    double B   = node.B;
+    double Sab = node.Sab;
+    double fa  = node.fa;
+    double fb  = node.fb;
     double C = (A + B) / 2;
     double fc = f(C);
     double Sac = Trapez(A, C, fa, fc);
@@ -197,7 +209,7 @@ void Calculate(
         if (local_stack->size() != 0) {
             // printf("Thread [%ld]. Local stack access\n", id);
             // если в локальном стеке есть записи, берем запись с вершины
-            std::unordered_map<std::string, double> cur_top = local_stack->top();
+            Node cur_top = local_stack->top();
             local_stack->pop();
 
             #ifdef LOG
@@ -205,8 +217,8 @@ void Calculate(
             #endif //LOG
 
             // производим выычисление промежутка
-            std::unordered_map<std::string, double> nd = MakeNode(
-                cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
+            Node nd = MakeNode(
+                cur_top.A,  cur_top.B, cur_top.fa, cur_top.fb, cur_top.Sab
             );
             Calculate(
                 id, eps, local_stack, global_stack, nd, local_res, sem, mutex 
@@ -256,11 +268,11 @@ void Calculate(
                     #endif //LOG
 
                     // берем первую запись с локального стека и начинаем ее обрабатывать
-                    std::unordered_map<std::string, double> cur_top = local_stack->top();
+                    Node cur_top = local_stack->top();
                     local_stack->pop();
                     // printf("Thread [%ld]. Local stack pop.\n", id);
-                    std::unordered_map<std::string, double> nd = MakeNode(
-                        cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
+                    Node nd = MakeNode(
+                        cur_top.A,  cur_top.B, cur_top.fa, cur_top.fb, cur_top.Sab
                     );
                     Calculate(
                         id, eps, local_stack, global_stack, nd, local_res, sem, mutex 
@@ -290,14 +302,14 @@ void Calculate(
         }
 
         // с левой частью продолжаем работать
-        std::unordered_map<std::string, double> nd = MakeNode(A, C, fa, fc, Sac);
+        Node nd = MakeNode(A, C, fa, fc, Sac);
         Calculate(id, eps, local_stack, global_stack, nd, local_res, sem, mutex);
     }
 }
 
 void* ThreadFunction(void* arg) {
     arg_t* args = (arg_t*) arg;
-    std::stack<std::unordered_map<std::string, double>> local_stack; // локальный стек
+    std::stack<Node> local_stack; // локальный стек
     volatile double local_res = 0; // частичная сумма потока
     #ifdef DEBUG
     printf("thread [%zd] works on space [%lf, %lf]\n", args->id, args->A, args->B);
@@ -306,7 +318,7 @@ void* ThreadFunction(void* arg) {
     double fa = f(args->A);
     double fb = f(args->B);
 
-    std::unordered_map<std::string, double> initial_node = MakeNode(
+    Node initial_node = MakeNode(
         args->A, args->B, fa, fb, Trapez(args->A, args->B, fa, fb)
     );
     // printf("Thread [%ld]. Thread function. Start to calculate.\n", args->id);
