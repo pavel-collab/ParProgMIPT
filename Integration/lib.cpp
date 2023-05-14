@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <semaphore.h>
-
 #include <cmath>
 
 #include "lib.hpp"
@@ -42,7 +41,7 @@ void TransmitOneNode(
 {
     if (src_stack->empty())
         return;
-        
+
     std::unordered_map<std::string, double> node = src_stack->top();
     src_stack->pop();
     dst_stack->push(node);

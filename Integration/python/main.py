@@ -51,7 +51,7 @@ def main():
     plt.scatter(np.array(threads), np.array(exec_time))
     plt.plot(np.array(threads), np.array(exec_time))
     plt.xlabel("threads")
-    plt.ylabel("time")
+    plt.ylabel("time (ms)")
     plt.grid()
     fig.savefig(save_file_name)
 
