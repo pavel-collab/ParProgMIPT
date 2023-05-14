@@ -9,7 +9,7 @@
 
 #include "lib.hpp"
 
-// #define DEBUG
+#define DEBUG
 
 double f(double x) {
     // return x*x;
