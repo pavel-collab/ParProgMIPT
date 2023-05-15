@@ -107,8 +107,13 @@ void Calculate(
     std::stack<std::unordered_map<std::string, double>>* local_stack, 
     std::stack<std::unordered_map<std::string, double>>* global_stack,
     std::unordered_map<std::string, double> node,
-    volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex
+    volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex,
+    volatile long long* iterations
 ) {
+    pthread_mutex_lock(mutex);
+    *(iterations) += 1; // каждый заход в функцию вычислений означает новую итерацию
+    pthread_mutex_unlock(mutex);
+
     double A   = node["A"];
     double B   = node["B"];
     double Sab = node["Sab"];
@@ -144,9 +149,15 @@ void Calculate(
             std::unordered_map<std::string, double> nd = MakeNode(
                 cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
             );
-            Calculate(
-                id, eps, local_stack, global_stack, nd, local_res, sem, mutex 
-            );
+            Calculate  (id, 
+                        eps, 
+                        local_stack, 
+                        global_stack, 
+                        nd, 
+                        local_res, 
+                        sem, 
+                        mutex, 
+                        iterations);
         }
         else {
             /*
@@ -216,9 +227,15 @@ void Calculate(
                         std::unordered_map<std::string, double> nd = MakeNode(
                             cur_top["A"],  cur_top["B"], cur_top["fa"], cur_top["fb"], cur_top["Sab"]
                         );
-                        Calculate(
-                            id, eps, local_stack, global_stack, nd, local_res, sem, mutex 
-                        );
+                        Calculate  (id, 
+                                    eps, 
+                                    local_stack, 
+                                    global_stack, 
+                                    nd, 
+                                    local_res, 
+                                    sem, 
+                                    mutex , 
+                                    iterations);
                     }
                 }
             }
@@ -246,7 +263,15 @@ void Calculate(
 
         // с левой частью продолжаем работать
         std::unordered_map<std::string, double> nd = MakeNode(A, C, fa, fc, Sac);
-        Calculate(id, eps, local_stack, global_stack, nd, local_res, sem, mutex);
+        Calculate  (id, 
+                    eps, 
+                    local_stack, 
+                    global_stack, 
+                    nd, 
+                    local_res, 
+                    sem, 
+                    mutex, 
+                    iterations);
     }
 }
 
@@ -262,7 +287,15 @@ void* ThreadFunction(void* arg) {
     std::unordered_map<std::string, double> initial_node = MakeNode(
         args->A, args->B, fa, fb, Trapez(args->A, args->B, fa, fb)
     );
-    Calculate(args->id, args->eps, &local_stack, args->glob_stack, initial_node, &local_res, args->glob_sem, args->g_mutex);
+    Calculate  (args->id, 
+                args->eps, 
+                &local_stack, 
+                args->glob_stack, 
+                initial_node, 
+                &local_res, 
+                args->glob_sem, 
+                args->g_mutex,
+                args->iterations);
 
     #ifdef DEBUG
     printf("thread [%ld] local res is %lf\n", args->id, local_res);

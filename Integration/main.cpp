@@ -51,6 +51,8 @@ int main(int argc, char* argv[]) {
     // переменную, хранящую результат делаем volatile
     // в противном случае, в процессе оптимизации компилятор может вытащить ее из-под мьютексов
     volatile double res = 0; // глобальная (для процессов) переменная, хранящая результат работы программы
+    volatile long long iterations = 0; // количество итераций рекурсивного алгоритма
+
     std::stack<std::unordered_map<std::string, double>> global_stack;
 
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex init
@@ -65,6 +67,7 @@ int main(int argc, char* argv[]) {
         thread_args[i].res = &res;
 
         thread_args[i].glob_stack = &global_stack;
+        thread_args[i].iterations = &iterations;
 
         thread_args[i].A = A + (B - A)*i / thread_amount;
         thread_args[i].B = A + (B - A)*(i+1) / thread_amount;
@@ -88,6 +91,7 @@ int main(int argc, char* argv[]) {
     
     std::cout << "exec time is " << std::chrono::duration<double, std::milli>(t_end-t_start).count() << " ms\n";
     std::cout << "total integration result is " << res << std::endl;
+    std::cout << "It takes " << iterations << " iterations" << std::endl;
 
     const char* file_name = "time.txt";
     FILE* fd = fopen(file_name, "a");

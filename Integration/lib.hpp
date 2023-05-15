@@ -28,6 +28,8 @@ typedef struct {
     sem_t* glob_sem;          // семафор (нужен для отслживания окончания работы программы)
     std::stack<std::unordered_map<std::string, double>>* glob_stack; // указатель на глобальный стек (нужен для делигирования работы на другие проессы в случае необходимости)
 
+    volatile long long* iterations; // в этой переменной будем хранить количество итераций программы, чтобы в конце посмотреть, как быстро алгоритм сошелся к заданной точности
+
     double A; // начало участка, обрабатываемого процессом
     double B; // конец участка, обрабатываемого процессом
 } arg_t;
@@ -62,7 +64,8 @@ void Calculate(
     std::stack<std::unordered_map<std::string, double>>* local_stack, 
     std::stack<std::unordered_map<std::string, double>>* global_stack,
     std::unordered_map<std::string, double> node,
-    volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex
+    volatile double* local_res, sem_t* sem, pthread_mutex_t* mutex, 
+    volatile long long* iterations
 );
 
 void* ThreadFunction(void* arg);
