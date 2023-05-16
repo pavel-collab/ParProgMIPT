@@ -25,6 +25,8 @@ int main(int argc, char* argv[]) {
     // начало и конец участка интегрирования
     double A = 0.005;
     double B = 5;
+    // double A = 0.01;
+    // double B = 1;
 
     // количество потоков
     unsigned int thread_amount = atoi(argv[1]);

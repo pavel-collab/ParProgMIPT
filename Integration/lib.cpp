@@ -15,6 +15,7 @@ double f(double x) {
     // return x*x;
     // return cos(20*x);
     return cos(1/x);
+    // return cos(1/(x*x));
 }
 
 double Trapez(double A, double B, double fa, double fb) {
